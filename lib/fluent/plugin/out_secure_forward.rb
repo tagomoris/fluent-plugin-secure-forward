@@ -16,11 +16,12 @@ module Fluent
     config_param :hard_timeout, :time, :default => 60
     config_param :expire_dns_cache, :time, :default => 0 # 0 means disable cache
 
-    # for handshake: RSA private key info
-    config_param :private_key_file, :string, :default => nil
-    config_param :private_key_passphrase, :string, :default => nil
+    config_param :cert_file_path, :string
+    # in <server>
+    # config_param :username, :string, :default => nil
+    # config_param :password, :string, :default => nil
 
-    attr_reader :nodes
+    attr_reader :servers
 
     def initialize
       super
