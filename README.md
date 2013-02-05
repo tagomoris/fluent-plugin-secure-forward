@@ -60,9 +60,10 @@ This plugin makes you to be able to:
 5. (server) check PING
   * check sharedkey
   * check username / password (if required)
-  * disconnect when failed
+  * send PONG FAILURE if failed
+  * ['PONG', false, 'reason of authentication failure']
 6. (server) send PONG
-  * ['PONG', selfhostname, sha512(sharedkey_salt + selfhostname + sharedkey)]
+  * ['PONG', true, 'blank string', selfhostname, sha512(sharedkey_salt + selfhostname + sharedkey)]
 7. (client) check PONG
   * check sharedkey
   * disconnect when failed
