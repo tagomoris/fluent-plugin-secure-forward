@@ -7,19 +7,67 @@ This plugin makes you to be able to:
  * protect your data from others in transferring with SSL
    * with certificate signed and registered correctly
    * with self-signed certificate (and generate certificate in in\_secure\_forward automatically)
+ * check connecting source ip and its dns reverse lookup result
  * authenticate with username / password pairs
  * authenticate by shared_key check from both of client(out\_secure\_forward) and server(in\_secure\_forward)
- * check connecting source ip and its dns reverse lookup result
 
-## Senario (in development)
+## Senario (internal developer document)
 
-### Over Internet with global IP and certificates signed and hosted correctly
+* server
+  * in\_secure\_forward
+* client
+  * out\_secure\_forward
 
-You should in setup: 
+### Setup Phase (server)
 
- * make shared_key string (per in\_secure\_forward node) and username / password pairs (per out\_secure\_forward node)
- * configure 
+1. SSLContext
+  * with certificate file / private key file
+    1. read cert file
+    2. generate SSLContext object
+  * without certificate file
+    1. generate key pair
+    2. generate cert data
+    3. sign cert data with generated private key
+2. shared key
+  * read shared key from configuration
+3. username / password pairs
+  * read from configuration
 
+### Setup Phase (client)
+
+1. SSLContext
+  1. certificate
+    * with certificate file, read from file
+    * without certificate file, `new SSLContext` without any options
+  2. set SSLContext option which allow self signed key option or not
+2. shared key
+  * read shared key from configuration
+3. read server list with username / password pairs from configuration
+
+### Handshake
+
+1. (client) connect to server
+  * on SSL socket handshake, checks certificate and its significate (in client)
+2. (server) check client dns reverse lookup result (if enabled)
+  * disconnect when failed
+3. (server) send HELO
+  * ['HELO', selfhostname, salt, options(hash)]
+  * options:
+    * auth: bool (required or not)
+    * keepalive: bool (allowed or not)
+4. (client) send PING
+  * ['PING', selfhostname, sha512(salt + selfhostname + sharedkey), username || '', sha512(salt + username + password) || '']
+5. (server) check PING
+  * check sharedkey
+  * check username / password (if required)
+  * disconnect when failed
+6. (server) send PONG
+  * ['PONG', selfhostname, sha512(salt + selfhostname + sharedkey)]
+7. (client) check PONG
+  * check sharedkey
+  * disconnect when failed
+8. connection established
+  * send data from client (until keepalive expiration)
 
 ## Installation
 

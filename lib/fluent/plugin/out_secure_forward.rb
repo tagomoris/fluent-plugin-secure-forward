@@ -9,8 +9,7 @@ module Fluent
     config_param :self_hostname, :string, :default => nil
     include Fluent::Mixin::ConfigPlaceholders
 
-    config_param :bypass_shared_key_check, :bool, :default => false
-    config_param :shared_key, :string, :default => nil
+    config_param :shared_key, :string
 
     config_param :keepalive, :time, :default => 3600 # 0 means disable keepalive
 
