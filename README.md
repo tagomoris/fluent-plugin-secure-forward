@@ -53,16 +53,16 @@ This plugin makes you to be able to:
 3. (server) send HELO
   * ['HELO', options(hash)]
   * options:
-    * auth: bool (required or not)
+    * auth: string or nil (string: authentication required, and its salt is this value)
     * keepalive: bool (allowed or not)
 4. (client) send PING
-  * ['PING', selfhostname, salt, sha512(salt + selfhostname + sharedkey), username || '', sha512(salt + username + password) || '']
+  * ['PING', selfhostname, sharedkey_salt, sha512(sharedkey_salt + selfhostname + sharedkey), username || '', sha512(auth_salt + username + password) || '']
 5. (server) check PING
   * check sharedkey
   * check username / password (if required)
   * disconnect when failed
 6. (server) send PONG
-  * ['PONG', selfhostname, sha512(salt + selfhostname + sharedkey)]
+  * ['PONG', selfhostname, sha512(sharedkey_salt + selfhostname + sharedkey)]
 7. (client) check PONG
   * check sharedkey
   * disconnect when failed
