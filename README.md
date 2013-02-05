@@ -69,6 +69,10 @@ This plugin makes you to be able to:
 8. connection established
   * send data from client (until keepalive expiration)
 
+### Data transferring
+
+CONSIDER RETURN ACK OR NOT
+
 ## Installation
 
 Add this line to your application's Gemfile:
