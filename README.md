@@ -73,6 +73,10 @@ This plugin makes you to be able to:
 
 CONSIDER RETURN ACK OR NOT
 
+ * ack for each message ?
+ * data sequence number in keepalive session ?
+ * mmm...
+
 ## Installation
 
 Add this line to your application's Gemfile:
