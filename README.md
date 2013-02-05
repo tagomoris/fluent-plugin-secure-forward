@@ -74,6 +74,7 @@ This plugin makes you to be able to:
 CONSIDER RETURN ACK OR NOT
 
  * ack for each message ?
+ * pipeline mode and one-by-one mode ?
  * data sequence number in keepalive session ?
  * mmm...
 
