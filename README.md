@@ -53,7 +53,7 @@ This plugin makes you to be able to:
 3. (server) send HELO
   * ['HELO', options(hash)]
   * options:
-    * auth: string or nil (string: authentication required, and its salt is this value)
+    * auth: string or blank\_string (string: authentication required, and its salt is this value)
     * keepalive: bool (allowed or not)
 4. (client) send PING
   * ['PING', selfhostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + selfhostname + sharedkey), username || '', sha512\_hex(auth\_salt + username + password) || '']
