@@ -51,16 +51,17 @@ This plugin makes you to be able to:
 2. (server) check client dns reverse lookup result (if enabled)
   * disconnect when failed
 3. (server) send HELO
-  * ['HELO', selfhostname, salt, options(hash)]
+  * ['HELO', options(hash)]
   * options:
-    * auth: bool (required or not)
+    * auth: string or nil (string: authentication required, and its salt is this value)
     * keepalive: bool (allowed or not)
 4. (client) send PING
-  * ['PING', selfhostname, sha512\_hex(salt + selfhostname + sharedkey), username || '', sha512\_hex(salt + username + password) || '']
+  * ['PING', selfhostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + selfhostname + sharedkey), username || '', sha512\_hex(auth\_salt + username + password) || '']
 5. (server) check PING
   * check sharedkey
   * check username / password (if required)
-  * return 'PONG'
+  * send PONG FAILURE if failed
+  * ['PONG', false, 'reason of authentication failure', '', '']
 6. (server) send PONG
   * ['PONG', bool(authentication result), 'reason if authentication failed', selfhostname, sha512\_hex(salt + selfhostname + sharedkey)]
 7. (client) check PONG
