@@ -242,7 +242,7 @@ module Fluent
     end
 
     class Session # Fluent::SecureForwardOutput::Session
-      attr_accessor :state, :thread, :node, :socket, :unpacker, :auth_salt, :shared_key_salt
+      attr_accessor :state, :thread, :node, :socket, :unpacker, :auth_salt
 
       def initialize(socket, receiver)
         @handshake = false
