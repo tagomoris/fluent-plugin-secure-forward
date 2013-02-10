@@ -9,7 +9,7 @@ This plugin makes you to be able to:
    * with self-signed certificate (and generate certificate in in\_secure\_forward automatically)
  * check connecting source ip and its dns reverse lookup result
  * authenticate with username / password pairs
- * authenticate by shared_key check from both of client(out\_secure\_forward) and server(in\_secure\_forward)
+ * authenticate by shared\_key check from both of client(out\_secure\_forward) and server(in\_secure\_forward)
 
 ## Senario (internal developer document)
 
@@ -56,13 +56,13 @@ This plugin makes you to be able to:
     * auth: bool (required or not)
     * keepalive: bool (allowed or not)
 4. (client) send PING
-  * ['PING', selfhostname, sha512(salt + selfhostname + sharedkey), username || '', sha512(salt + username + password) || '']
+  * ['PING', selfhostname, sha512\_hex(salt + selfhostname + sharedkey), username || '', sha512\_hex(salt + username + password) || '']
 5. (server) check PING
   * check sharedkey
   * check username / password (if required)
-  * disconnect when failed
+  * return 'PONG'
 6. (server) send PONG
-  * ['PONG', selfhostname, sha512(salt + selfhostname + sharedkey)]
+  * ['PONG', bool(authentication result), 'reason if authentication failed', selfhostname, sha512\_hex(salt + selfhostname + sharedkey)]
 7. (client) check PONG
   * check sharedkey
   * disconnect when failed
