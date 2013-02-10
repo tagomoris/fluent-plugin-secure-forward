@@ -171,19 +171,20 @@ module Fluent
       OpenSSL::Random.random_bytes(16)
     end
 
-    def generate_helo(salt)
-      # ['HELO', selfhostname, salt, options(hash)]
-      [ 'HELO', @selfhostname, salt, {'auth' => @authentication, 'keepalive' => @allow_keepalive } ].to_msgpack
+    def generate_helo(auth_salt)
+      # ['HELO', options(hash)]
+      [ 'HELO', {'auth' => (@authentication ? auth_salt : ''), 'keepalive' => @allow_keepalive } ].to_msgpack
     end
 
-    def check_ping(salt, message)
-      # ['PING', selfhostname, sha512(salt + selfhostname + sharedkey), username || '', sha512(salt + username + password) || '']
-      unless message.size == 5 && message[0] == 'PING'
+    def check_ping(auth_salt, message)
+      # ['PING', selfhostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + selfhostname + sharedkey),
+      #  username || '', sha512\_hex(auth\_salt + username + password) || '']
+      unless message.size == 6 && message[0] == 'PING'
         return false, 'invalid ping message'
       end
-      ping, hostname, shared_key_hexdigest, username, password_digest = message
+      ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
 
-      serverside = Digest::SHA512.new(salt).update(hostname).update(@shared_key).hexdigest
+      serverside = Digest::SHA512.new(shared_key_salt).update(hostname).update(@shared_key).hexdigest
       if shared_key_hexdigest != serverside
         return false, 'shared_key mismatch'
       end
@@ -195,13 +196,17 @@ module Fluent
         #TODO: check password matches for username
       end
 
-      return true, ''
+      return true, shared_key_salt
     end
 
-    def generate_pong(salt, auth_result, auth_reason)
+    def generate_pong(salt, auth_result, reason_or_salt)
       # ['PONG', bool(authentication result), 'reason if authentication failed', selfhostname, sha512\_hex(salt + selfhostname + sharedkey)]
-      shared_key_hex = Digest::SHA512.new(salt).update(@selfhostname).update(@shared_key).hexdigest
-      [ 'PONG', auth_result, auth_reason, @selfhostname, shared_key_hex ]
+      if not auth_result
+        return ['PONG', auth_result, reason_or_salt, '', '']
+      end
+
+      shared_key_hex = Digest::SHA512.new(reason_or_salt).update(@selfhostname).update(@shared_key).hexdigest
+      [ 'PONG', true, '', @selfhostname, shared_key_hex ]
     end
 
     def on_message(msg)
@@ -237,7 +242,7 @@ module Fluent
     end
 
     class Session # Fluent::SecureForwardOutput::Session
-      attr_accessor :state, :thread, :node, :socket, :unpacker, :salt
+      attr_accessor :state, :thread, :node, :socket, :unpacker, :auth_salt, :shared_key_salt
 
       def initialize(socket, receiver)
         @handshake = false
@@ -260,7 +265,7 @@ module Fluent
           # TODO: implement to disconnect socket
         end
 
-        @salt = receiver.generate_salt
+        @auth_key_salt = receiver.generate_salt
         @unpacker = MessagePack::Unpacker.new
         @thread = Thread.new(:start)
       end
@@ -273,18 +278,18 @@ module Fluent
         case @state
         when :helo
           # TODO: log debug
-          send_data(receiver.generate_helo(@salt))
+          send_data(receiver.generate_helo(@shared_key_salt))
           @state = :pingpong
         when :pingpong
-          result, reason = receiver.check_ping(@salt, data)
+          result, reason_or_salt = receiver.check_ping(@salt, data)
           # TODO: log info? debug?
-          send_data(receiver.generate_pong(@salt, result, reason))
           if not result
+            send_data(receiver.generate_pong(@salt, result, reason_or_salt))
             # connection refused
             # disconnect and close
             # kill thread
           end
-
+          
           @state = :established
           @socket.sync = false
         end
