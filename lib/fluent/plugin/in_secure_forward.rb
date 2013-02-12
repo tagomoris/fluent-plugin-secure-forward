@@ -8,20 +8,20 @@ module Fluent
 
     Fluent::Plugin.register_input('secure_forward', self)
 
-    config_param :self_hostname, :string, :default => nil
+    config_param :self_hostname, :string
     include Fluent::Mixin::ConfigPlaceholders
 
     config_param :shared_key, :string
 
     config_param :bind, :string, :default => '0.0.0.0'
     config_param :port, :integer, :default => DEFAULT_SECURE_LISTEN_PORT
-    config_param :allow_keepalive, :bool, :default => true
+    config_param :allow_keepalive, :bool, :default => true #TODO: implement
 
     config_param :allow_anonymous_source, :bool, :default => true
     config_param :authentication, :bool, :default => false
     config_param :dns_reverse_lookup_check, :bool, :default => false
 
-    config_param :cert_auto_generate, :string, :default => false
+    config_param :cert_auto_generate, :bool, :default => false
     config_param :generate_private_key_length, :integer, :default => 2048
 
     config_param :generate_cert_country, :string, :default => 'US'
@@ -30,7 +30,7 @@ module Fluent
     config_param :generate_cert_common_name, :string, :default => 'fluentd secure forward'
 
     config_param :cert_file_path, :string, :default => nil
-    config_param :private_key_file, :string
+    config_param :private_key_file, :string, :default => nil
     config_param :private_key_passphrase, :string, :default => nil
 
     config_param :read_length, :size, :default => 8*1024*1024 # 8MB
@@ -44,12 +44,12 @@ module Fluent
     #   username ....
     #   password ....
     # </user>
-    attr_reader :nodes # list of hosts, allowed to connect <node> tag (it includes source ip, shared_key(optional))
-    # <node>
+    attr_reader :nodes # list of hosts, allowed to connect <server> tag (it includes source ip, shared_key(optional))
+    # <client>
     #   host ipaddr/hostname
     #   shared_key .... # optional shared key
     #   users username,list,of,allowed
-    # </node>
+    # </client>
 
     attr_reader :sessions # node/socket/thread list which has sslsocket instance keepaliving to client
 
@@ -63,6 +63,10 @@ module Fluent
     def configure(conf)
       super
       
+      unless @cert_auto_generate || @cert_file_path
+        raise Fluent::ConfigError, "One of 'cert_auto_generate' or 'cert_file_path' must be specified"
+      end
+
       @read_interval = @read_interval_msec / 1000.0
       @socket_interval = @socket_interval_msec / 1000.0
 
@@ -78,9 +82,9 @@ module Fluent
               username: element['username'],
               password: element['password']
             })
-        when 'node'
+        when 'client'
           unless element['host']
-            raise Fluent::ConfigError, "host missing in <node>"
+            raise Fluent::ConfigError, "host missing in <client>"
           end
           @nodes.push({
               host: element['host'],
@@ -105,9 +109,10 @@ module Fluent
     end
 
     def shutdown
-      @sock.close
-      @sessions.each{ |s| s.close }
+      @listener.kill
       @listener.join
+      @sock.close
+      @sessions.each{ |s| s.shutdown }
     end
     
     def certificate
@@ -149,64 +154,13 @@ module Fluent
       ctx.cert = cert
       ctx.key = key
 
-      server = TCPServer.new(2013)
+      server = TCPServer.new(@bind, @port)
       @sock = OpenSSL::SSL::SSLServer.new(server, ctx)
       loop do
         while socket = @sock.accept
-          @sessions.push Session.new(socket, method(:check_ping), method(:generate_pong), method(:on_message))
+          @sessions.push Session.new(self, socket)
         end
       end
-    end
-
-    def check_node(hostname, ipaddress)
-      # @nodes.push({
-      #     host: element['host'],
-      #     shared_key: (element['shared_key'] || @shared_key),
-      #     users: (element['users'] || '').split(',')
-      #   })
-      #TODO: check from nodes and select one (or nil)
-    end
-
-    def generate_salt
-      OpenSSL::Random.random_bytes(16)
-    end
-
-    def generate_helo(auth_salt)
-      # ['HELO', options(hash)]
-      [ 'HELO', {'auth' => (@authentication ? auth_salt : ''), 'keepalive' => @allow_keepalive } ].to_msgpack
-    end
-
-    def check_ping(auth_salt, message)
-      # ['PING', selfhostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + selfhostname + sharedkey),
-      #  username || '', sha512\_hex(auth\_salt + username + password) || '']
-      unless message.size == 6 && message[0] == 'PING'
-        return false, 'invalid ping message'
-      end
-      ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
-
-      serverside = Digest::SHA512.new(shared_key_salt).update(hostname).update(@shared_key).hexdigest
-      if shared_key_hexdigest != serverside
-        return false, 'shared_key mismatch'
-      end
-
-      if @authentication
-        if @node and @node[:users].size > 0
-          #TODO: check username matches or mismatch
-        end
-        #TODO: check password matches for username
-      end
-
-      return true, shared_key_salt
-    end
-
-    def generate_pong(salt, auth_result, reason_or_salt)
-      # ['PONG', bool(authentication result), 'reason if authentication failed', selfhostname, sha512\_hex(salt + selfhostname + sharedkey)]
-      if not auth_result
-        return ['PONG', auth_result, reason_or_salt, '', '']
-      end
-
-      shared_key_hex = Digest::SHA512.new(reason_or_salt).update(@selfhostname).update(@shared_key).hexdigest
-      [ 'PONG', true, '', @selfhostname, shared_key_hex ]
     end
 
     def on_message(msg)
@@ -241,11 +195,12 @@ module Fluent
       end
     end
 
-    class Session # Fluent::SecureForwardOutput::Session
+    class Session # Fluent::SecureForwardInput::Session
+      attr_accessor :receiver
       attr_accessor :state, :thread, :node, :socket, :unpacker, :auth_salt
 
-      def initialize(socket, receiver)
-        @handshake = false
+      def initialize(receiver, socket)
+        @receiver = receiver
 
         @state = :helo
 
@@ -253,74 +208,145 @@ module Fluent
         @socket.sync = true
         proto, port, host, ipaddr = @socket.io.addr
 
-        @node = receiver.check_node(host)
-        if @node.nil? && (! receiver.allow_anonymous_source)
+        @node = check_node(host, ipaddr)
+        if @node.nil? && (! @receiver.allow_anonymous_source)
           raise NotImplementedError, "wait a minute."
           # TODO: implement to disconnect socket
         end
 
         # check reverse lookup if needed
-        if receiver.dns_reverse_lookup_check
+        if @receiver.dns_reverse_lookup_check
           raise NotImplementedError, "wait a minute."
           # TODO: implement to disconnect socket
         end
 
-        @auth_key_salt = receiver.generate_salt
+        @auth_key_salt = generate_salt
         @unpacker = MessagePack::Unpacker.new
-        @thread = Thread.new(:start)
+
+        @thread = Thread.new(&method(:start))
+      end
+
+      def established?
+        @state == :established
+      end
+
+      def generate_salt
+        OpenSSL::Random.random_bytes(16)
+      end
+
+      def check_node(hostname, ipaddress)
+        # @nodes.push({
+        #     host: element['host'],
+        #     shared_key: (element['shared_key'] || @shared_key),
+        #     users: (element['users'] || '').split(',')
+        #   })
+        #TODO: check from nodes and select one (or nil)
+      end
+
+      def generate_helo
+        $log.info "generating helo"
+        # ['HELO', options(hash)]
+        [ 'HELO', {'auth' => (@receiver.authentication ? @auth_key_salt : ''), 'keepalive' => @receiver.allow_keepalive } ]
+      end
+
+      def check_ping(message)
+        $log.info "checking ping"
+        # ['PING', self_hostname, shared_key\_salt, sha512\_hex(shared_key\_salt + self_hostname + shared_key),
+        #  username || '', sha512\_hex(auth\_salt + username + password) || '']
+        unless message.size == 6 && message[0] == 'PING'
+          return false, 'invalid ping message'
+        end
+        ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
+
+        serverside = Digest::SHA512.new.update(shared_key_salt).update(hostname).update(@receiver.shared_key).hexdigest
+        if shared_key_hexdigest != serverside
+          return false, 'shared_key mismatch'
+        end
+
+        if @receiver.authentication
+          # use @auth_key_salt
+          if @receiver.node and @receiver.node[:users].size > 0
+            #TODO: check username matches or mismatch
+          end
+          #TODO: check password matches for username
+        end
+
+        return true, shared_key_salt
+      end
+
+      def generate_pong(auth_result, reason_or_salt)
+        $log.info "generating pong"
+        # ['PONG', bool(authentication result), 'reason if authentication failed',
+        #  self_hostname, sha512\_hex(salt + self_hostname + sharedkey)]
+        if not auth_result
+          return ['PONG', false, reason_or_salt, '', '']
+        end
+
+        shared_key_hex = Digest::SHA512.new.update(reason_or_salt).update(@receiver.self_hostname).update(@receiver.shared_key).hexdigest
+        [ 'PONG', true, '', @receiver.self_hostname, shared_key_hex ]
       end
 
       def on_read(data)
-        if @state == :established
-          receiver.on_message(data)
+        $log.info "on_read"
+        if self.established?
+          @receiver.on_message(data)
         end
 
         case @state
-        when :helo
-          # TODO: log debug
-          send_data(receiver.generate_helo(@shared_key_salt))
-          @state = :pingpong
         when :pingpong
-          result, reason_or_salt = receiver.check_ping(@salt, data)
+          success, reason_or_salt = self.check_ping(data)
           # TODO: log info? debug?
-          if not result
-            send_data(receiver.generate_pong(@salt, result, reason_or_salt))
+          if not success
+            send_data generate_pong(false, reason_or_salt)
             # connection refused
             # disconnect and close
             # kill thread
+            return
           end
+          send_data generate_pong(true, reason_or_salt)
           
+          $log.info "connection established"
           @state = :established
-          @socket.sync = false
         end
       end
 
       def send_data(data)
         # not nonblock because write data (response) needs sequence
-        @socket.write(data)
+        @socket.write data.to_msgpack
       end
 
       def start
+        $log.info "starting server"
         buf = ''
+        read_length = @receiver.read_length
+        read_interval = @receiver.read_interval
+        socket_interval = @receiver.socket_interval
+        
+        send_data generate_helo()
+        @state = :pingpong
+
         loop do 
           begin
-            while @socket.read_nonblock(receiver.read_length, buf)
+            while @socket.read_nonblock(read_length, buf)
               if buf == ''
-                sleep receiver.read_interval
+                sleep read_interval
                 next
               end
-              @unpacker.feed_each(buf, method(:on_read))
+              @unpacker.feed_each(buf, &method(:on_read))
+              buf = ''
             end
           rescue OpenSSL::SSL::SSLError
             # to wait i/o restart
-            sleep receiver.socket_interval
+            sleep socket_interval
           end
         end
       end
 
-      def close
-        @socket.close
+      def shutdown
+        @state = :closed
+        @thread.kill
         @thread.join
+        @socket.close
       end
     end
   end
