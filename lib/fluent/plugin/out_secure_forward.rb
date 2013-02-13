@@ -26,6 +26,8 @@ module Fluent
     config_param :read_interval_msec, :integer, :default => 50 # 50ms
     config_param :socket_interval_msec, :integer, :default => 200 # 200ms
 
+    config_param :reconnect_interval, :time, :default => 15
+
     attr_reader :read_interval, :socket_interval
 
     attr_reader :nodes
@@ -79,13 +81,32 @@ module Fluent
       super
 
       OpenSSL::Random.seed(File.read("/dev/random", 16))
-      # in thread
       @nodes.each do |node|
         node.start
+      end
+      @nodewatcher = Thread.new(&method(:node_watcher))
+    end
+
+    def node_watcher
+      loop do
+        sleep @reconnect_interval
+        $log.debug "in node health watcher"
+        (0...(@nodes.size)).each do |i|
+          $log.debug "node health watcher for #{@nodes[i].host}"
+          if @nodes[i].state != :established
+            $log.info "dead connection found: #{@nodes[i].host}, reconnecting..."
+            node = @nodes[i]
+            @nodes[i] = node.dup
+            @nodes[i].start
+            node.shutdown
+          end
+        end
       end
     end
 
     def shutdown
+      @nodewatcher.kill
+      @nodewatcher.join
       @nodes.each do |node|
         node.shutdown
       end
@@ -105,7 +126,12 @@ module Fluent
         raise "no one nodes with valid ssl session"
       end
 
-      send_data(node, tag, es)
+      begin
+        send_data(node, tag, es)
+      rescue IOError => e
+        $log.warn "Failed to send messages to #{node.host}, parging."
+        node.shutdown
+      end
     end
 
     # MessagePack FixArray length = 2
@@ -160,6 +186,15 @@ module Fluent
 
         @shared_key_salt = generate_salt
         @state = :helo
+        @thread = nil
+      end
+
+      def dup
+        Node.new(
+          @sender,
+          @shared_key,
+          {'host' => @host, 'port' => @port, 'hostlabel' => @hostlabel, 'username' => @username, 'password' => @password}
+        )
       end
 
       def start
@@ -167,13 +202,23 @@ module Fluent
       end
 
       def shutdown
+        $log.debug "shutting down node #{@host}"
         @state = :closed
-        if @thread
+
+        if @thread == Thread.current
+          @sslsession.close if @sslsession
+          @socket.close if @socket
           @thread.kill
-          @thread.join
+        else
+          if @thread
+            @thread.kill
+            @thread.join
+          end
+          @sslsession.close if @sslsession
+          @socket.close if @socket
         end
-        @sslsession.close if @sslsession
-        @socket.close if @socket
+      rescue => e
+        $log.debug "#{e.class}:#{e.message}"
       end
 
       def established?
@@ -185,7 +230,7 @@ module Fluent
       end
 
       def check_helo(message)
-        $log.info "checking helo"
+        $log.debug "checking helo"
         # ['HELO', options(hash)]
         unless message.size == 2 && message[0] == 'HELO'
           return false
@@ -197,7 +242,7 @@ module Fluent
       end
 
       def generate_ping
-        $log.info "generating ping"
+        $log.debug "generating ping"
         # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + shared_key),
         #  username || '', sha512\_hex(auth\_salt + username + password) || '']
         shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt).update(@sender.self_hostname).update(@shared_key).hexdigest
@@ -212,7 +257,7 @@ module Fluent
       end
 
       def check_pong(message)
-        $log.info "checking pong"
+        $log.debug "checking pong"
         # ['PONG', bool(authentication result), 'reason if authentication failed',
         #  self_hostname, sha512\_hex(salt + self_hostname + sharedkey)]
         unless message.size == 5 && message[0] == 'PONG'
@@ -237,7 +282,7 @@ module Fluent
       end
 
       def on_read(data)
-        $log.info "on_read"
+        $log.debug "on_read"
         if self.established?
           #TODO: ACK
           $log.warn "unknown packets arrived..."
@@ -248,9 +293,8 @@ module Fluent
         when :helo
           # TODO: log debug
           unless check_helo(data)
-            # invalid helo message
-            # disconnect
-            # kill thread
+            $log.warn "received invalid helo message from #{@host}"
+            self.shutdown
             return
           end
           send_data generate_ping()
@@ -258,19 +302,17 @@ module Fluent
         when :pingpong
           success, reason = check_pong(data)
           unless success
-            # connection refused
-            # log warn reason
-            # disconnect and close
-            # kill thread
+            $log.warn "connection refused to #{@host}:" + reason
+            self.shutdown
             return
           end
-          $log.info "connection established"
+          $log.info "connection established to #{@host}"
           @state = :established
         end
       end
 
       def connect
-        $log.info "starting client"
+        $log.debug "starting client"
         sock = TCPSocket.new(@host, @port)
 
         opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
@@ -292,7 +334,7 @@ module Fluent
           end
         end
 
-        $log.info "ssl sessison connected"
+        $log.debug "ssl sessison connected"
         @socket = sock
         @sslsession = sslsession
 
@@ -314,8 +356,12 @@ module Fluent
           rescue OpenSSL::SSL::SSLError
             # to wait i/o restart
             sleep socket_interval
+          rescue EOFError
+            $log.warn "disconnected from #{@host}"
+            break
           end
         end
+        self.shutdown
       end
     end
   end
