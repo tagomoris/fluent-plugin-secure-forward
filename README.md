@@ -7,11 +7,10 @@ This plugin makes you to be able to:
  * protect your data from others in transferring with SSL
    * with certificate signed and registered correctly
    * with self-signed certificate (and generate certificate in in\_secure\_forward automatically)
- * check connecting source ip and its dns reverse lookup result
  * authenticate with username / password pairs
  * authenticate by shared\_key check from both of client(out\_secure\_forward) and server(in\_secure\_forward)
 
-## Senario (internal developer document)
+## Senario (developer document)
 
 * server
   * in\_secure\_forward
@@ -48,7 +47,9 @@ This plugin makes you to be able to:
 
 1. (client) connect to server
   * on SSL socket handshake, checks certificate and its significate (in client)
-2. (server) check client dns reverse lookup result (if enabled)
+2. (server)
+  * check network/domain acl (if enabled)
+  * check client dns reverse lookup result (if enabled)
   * disconnect when failed
 3. (server) send HELO
   * ['HELO', options(hash)]
@@ -104,3 +105,15 @@ TODO: Write usage instructions here
 3. Commit your changes (`git commit -am 'Added some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
+
+## TODO
+
+* ACK mode
+* input plugin
+  * access control
+    * network acl / domain acl
+    * check connecting source ip and its dns reverse lookup result (for domaian acl)
+  * access deny on accept (for DoS)
+* output plugin
+  * encryption algorithm option
+  * balancing/failover
