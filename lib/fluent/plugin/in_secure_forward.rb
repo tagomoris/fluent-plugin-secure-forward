@@ -29,7 +29,7 @@ module Fluent
     config_param :generate_cert_country, :string, :default => 'US'
     config_param :generate_cert_state, :string, :default => 'CA'
     config_param :generate_cert_locality, :string, :default => 'Mountain View'
-    config_param :generate_cert_common_name, :string, :default => 'fluentd secure forward'
+    config_param :generate_cert_common_name, :string, :default => nil
 
     config_param :cert_file_path, :string, :default => nil
     config_param :private_key_file, :string, :default => nil
@@ -99,6 +99,7 @@ module Fluent
         end
       end
 
+      @generate_cert_common_name ||= @self_hostname
       self.certificate
       true
     end
