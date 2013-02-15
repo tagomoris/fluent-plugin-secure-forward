@@ -2,7 +2,7 @@
 
 Fluentd input/output plugin to forward fluentd messages over SSL with authentication.
 
-**THIS PLUGIN IS PoC, and now version is HIGHLY EXPELIMENTAL.**
+**THIS PLUGIN IS PoC, and now version is HIGHLY EXPERIMENTAL.**
 
 This plugin makes you to be able to:
 

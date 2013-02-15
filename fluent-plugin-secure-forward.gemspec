@@ -4,8 +4,8 @@ Gem::Specification.new do |gem|
   gem.version       = "0.0.1"
   gem.authors       = ["TAGOMORI Satoshi"]
   gem.email         = ["tagomoris@gmail.com"]
-  gem.summary       = %q{Fluentd input/output plugin to forward in secure way}
-  gem.description   = %q{This plugin provides "authentication" with username/password for connection, and "encryption" of messages}
+  gem.summary       = %q{Fluentd input/output plugin to forward over SSL with authentications}
+  gem.description   = %q{This version is HIGHLY EXPERIMENTAL. DON'T USE IN PRODUCTION}
   gem.homepage      = "https://github.com/tagomoris/fluent-plugin-secure-forward"
 
   gem.files         = `git ls-files`.split($\)
