@@ -1,14 +1,147 @@
 # fluent-plugin-secure-forward
 
-Fluentd input/output plugin to forward fluentd messages over SSL, and authentication.
+Fluentd input/output plugin to forward fluentd messages over SSL with authentication.
+
+**THIS PLUGIN IS PoC, and now version is HIGHLY EXPELIMENTAL.**
 
 This plugin makes you to be able to:
 
  * protect your data from others in transferring with SSL
    * with certificate signed and registered correctly
    * with self-signed certificate (and generate certificate in in\_secure\_forward automatically)
- * authenticate with username / password pairs
  * authenticate by shared\_key check from both of client(out\_secure\_forward) and server(in\_secure\_forward)
+ * authenticate with username / password pairs
+
+**DON'T USE THIS PLUGIN OF THIS VERSION (v0.0.x) IN PRODUCTION ENVIRONMENT.**
+
+We need new developer/maintainer of this plugin, who wants to use this plugin in their systems.
+
+## Configuration
+
+### SecureForwardInput
+
+Default settings:
+  * listen 0.0.0.0:24284
+    * `bind 192.168.0.101`
+    * `port 24285`
+  * allow to accept from any sources
+  * allow to connect without authentications
+  * use certificate automatically generated
+    * `generate_private_key_length 2048`
+    * `generate_cert_country  US`
+    * `generate_cert_state    CA`
+    * `generate_cert_locality Mountain View`
+    * `generate_cert_common_name SAME_WITH_SELF_HOSTNAME_PARAMETER`
+  
+Minimal configurations like below:
+
+    <source>
+      type secure_forward
+      shared_key         secret_string
+      self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
+      cert_auto_generate yes                # This parameter MUST be specified
+    </source>
+
+To check username/password from clients, like this:
+
+    <source>
+      type secure_forward
+      shared_key         secret_string
+      self_hostname      server.fqdn.local
+      cert_auto_generate yes               
+      authentication     yes # Deny clients without valid username/password
+      <user>
+        username tagomoris
+        password foobar012
+      </user>
+      <user>
+        username frsyuki
+        password yakiniku
+      </user>
+    </source>
+
+To deny unknown source IP/hosts:
+
+    <source>
+      type secure_forward
+      shared_key         secret_string
+      self_hostname      server.fqdn.local
+      cert_auto_generate     yes
+      allow_anonymous_source no  # Allow to accept from nodes of <client>
+      <client>
+        host 192.168.10.30
+        # network address (ex: 192.168.10.0/24) NOT Supported now
+      </client>
+      <client>
+        host your.host.fqdn.local
+        # wildcard (ex: *.host.fqdn.local) NOT Supported now
+      </client>
+    </source>
+
+You can use both of username/password check and client check:
+
+    <source>
+      type secure_forward
+      shared_key         secret_string
+      self_hostname      server.fqdn.local
+      cert_auto_generate     yes
+      allow_anonymous_source no  # Allow to accept from nodes of <client>
+      authentication         yes # Deny clients without valid username/password
+      <user>
+        username tagomoris
+        password foobar012
+      </user>
+      <user>
+        username frsyuki
+        password sukiyaki
+      </user>
+      <user>
+        username repeatedly
+        password sushi
+      </user
+      <client>
+        host 192.168.10.30      # allow all users to connect from 192.168.10.30
+      </client>
+      <client>
+        host  192.168.10.31
+        users tagomoris,frsyuki # deny repeatedly from 192.168.10.31
+      </client>
+      <client>
+        host 192.168.10.32
+        shared_key less_secret_string # limited shared_key for 192.168.10.32
+        users      repeatedly         # and repatedly only
+      </client>
+    </source>
+
+### SecureForwardOutput
+
+Default settings:
+  * allow to connect server using self-signed certificates
+
+Minimal configurations like this:
+
+    <match secret.data.**>
+      type secure_forward
+      shared_key secret_string
+      <server>
+        host server.fqdn.local  # or IP
+        # port 24284
+      </server>
+    </match>
+
+At this version (v0.0.x), only one `<server>` section can be specified.
+
+If server requires username/password, set `username` and `password` in `<server>` section:
+
+    <match secret.data.**>
+      type secure_forward
+      shared_key secret_string
+      <server>
+        host server.fqdn.local
+        username repeatedly
+        password sushi
+      </server>
+    </match>
 
 ## Senario (developer document)
 
@@ -75,45 +208,30 @@ This plugin makes you to be able to:
 
 CONSIDER RETURN ACK OR NOT
 
+ * This version (v0.0.1) has no ACKs
+   * only supports burst transferring (same as ForwardInput/Output)
  * ack for each message ?
  * pipeline mode and one-by-one mode ?
  * data sequence number in keepalive session ?
- * mmm...
-
-## Installation
-
-Add this line to your application's Gemfile:
-
-    gem 'fluent-plugin-secure-forward'
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install fluent-plugin-secure-forward
-
-## Usage
-
-TODO: Write usage instructions here
-
-## Contributing
-
-1. Fork it
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Added some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
 
 ## TODO
 
-* ACK mode
-* input plugin
-  * access control
-    * network acl / domain acl
-    * check connecting source ip and its dns reverse lookup result (for domaian acl)
-  * access deny on accept (for DoS)
-* output plugin
-  * encryption algorithm option
-  * balancing/failover
+* test for non self-signed certificates
+* ACK mode (protocol)
+* support disabling keepalive (input/output)
+* access control (input plugin)
+  * network acl / domain acl
+  * check connecting source ip and its dns reverse lookup result (for domaian acl)
+  * access deny on accept (against DoS)
+* pluggable authentication database (input plugin)
+  * RDBMS, LDAP, or ...
+* encryption algorithm option (output plugin)
+* balancing/failover (output plugin)
+
+* GET NEW MAINTAINER
+
+## Copyright
+
+* Copyright (c) 2013- TAGOMORI Satoshi (tagomoris)
+* License
+  * Apache License, Version 2.0
