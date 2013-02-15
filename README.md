@@ -227,6 +227,7 @@ CONSIDER RETURN ACK OR NOT
   * RDBMS, LDAP, or ...
 * encryption algorithm option (output plugin)
 * balancing/failover (output plugin)
+* TESTS!
 
 * GET NEW MAINTAINER
 
