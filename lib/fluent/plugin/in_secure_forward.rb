@@ -153,8 +153,6 @@ module Fluent
         return @cert, @key
       end
 
-      raise NotImplementedError, "wait a minute!"
-
       @cert = OpenSSL::X509::Certificate.new(File.read(@cert_file_path))
       @key = OpenSSL::PKey::RSA.new(File.read(@private_key_file), @private_key_passphrase)
     end

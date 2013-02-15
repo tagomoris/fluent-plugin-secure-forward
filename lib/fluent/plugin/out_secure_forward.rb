@@ -20,7 +20,7 @@ module Fluent
     # config_param :expire_dns_cache, :time, :default => 0 # 0 means disable cache
 
     config_param :allow_self_signed_certificate, :bool, :default => true
-    config_param :cert_file_path, :string, :default => nil
+    config_param :ca_file_path, :string, :default => nil
 
     config_param :read_length, :size, :default => 512 # 512bytes
     config_param :read_interval_msec, :integer, :default => 50 # 50ms
@@ -33,6 +33,7 @@ module Fluent
     attr_reader :nodes
     # <server>
     #   host ipaddr/hostname
+    #   hostlabel labelname # certification common name
     #   port 24284
     #   shared_key .... # optional shared key
     #   username name # if required
@@ -49,11 +50,12 @@ module Fluent
     def configure(conf)
       super
 
+      unless @allow_self_signed_certificate
+        raise Fluent::ConfigError, "not tested yet!"
+      end
+
       @read_interval = @read_interval_msec / 1000.0
       @socket_interval = @socket_interval_msec / 1000.0
-
-      # TODO: read cert_file
-      self.certificates
 
       # read <server> tags and set to nodes
       @nodes = []
@@ -69,11 +71,15 @@ module Fluent
           raise Fluent::ConfigError, "unknown config tag name #{element.name}"
         end
       end
+      if @nodes.size > 1
+        raise Fluent::ConfigError, "Two or more servers are not supported yet."
+      end
 
       true
     end
 
     def select_node
+      #TODO: roundrobin? random?
       @nodes.select(&:established?).first
     end
 
@@ -112,14 +118,7 @@ module Fluent
       end
     end
 
-    def certificates
-      #TODO implement here!
-      @certs = []
-      return @certs
-    end
-
     def write_objects(tag, es)
-      #TODO: select one of nodes or connected sockets
       #TODO: check errors
       node = select_node
       unless node
@@ -219,6 +218,43 @@ module Fluent
         end
       rescue => e
         $log.debug "#{e.class}:#{e.message}"
+      end
+
+      def verify_result_name(code)
+        case code
+        when OpenSSL::X509::V_OK then 'V_OK'
+        when OpenSSL::X509::V_ERR_AKID_SKID_MISMATCH then 'V_ERR_AKID_SKID_MISMATCH'
+        when OpenSSL::X509::V_ERR_APPLICATION_VERIFICATION then 'V_ERR_APPLICATION_VERIFICATION'
+        when OpenSSL::X509::V_ERR_CERT_CHAIN_TOO_LONG then 'V_ERR_CERT_CHAIN_TOO_LONG'
+        when OpenSSL::X509::V_ERR_CERT_HAS_EXPIRED then 'V_ERR_CERT_HAS_EXPIRED'
+        when OpenSSL::X509::V_ERR_CERT_NOT_YET_VALID then 'V_ERR_CERT_NOT_YET_VALID'
+        when OpenSSL::X509::V_ERR_CERT_REJECTED then 'V_ERR_CERT_REJECTED'
+        when OpenSSL::X509::V_ERR_CERT_REVOKED then 'V_ERR_CERT_REVOKED'
+        when OpenSSL::X509::V_ERR_CERT_SIGNATURE_FAILURE then 'V_ERR_CERT_SIGNATURE_FAILURE'
+        when OpenSSL::X509::V_ERR_CERT_UNTRUSTED then 'V_ERR_CERT_UNTRUSTED'
+        when OpenSSL::X509::V_ERR_CRL_HAS_EXPIRED then 'V_ERR_CRL_HAS_EXPIRED'
+        when OpenSSL::X509::V_ERR_CRL_NOT_YET_VALID then 'V_ERR_CRL_NOT_YET_VALID'
+        when OpenSSL::X509::V_ERR_CRL_SIGNATURE_FAILURE then 'V_ERR_CRL_SIGNATURE_FAILURE'
+        when OpenSSL::X509::V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT then 'V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT'
+        when OpenSSL::X509::V_ERR_ERROR_IN_CERT_NOT_AFTER_FIELD then 'V_ERR_ERROR_IN_CERT_NOT_AFTER_FIELD'
+        when OpenSSL::X509::V_ERR_ERROR_IN_CERT_NOT_BEFORE_FIELD then 'V_ERR_ERROR_IN_CERT_NOT_BEFORE_FIELD'
+        when OpenSSL::X509::V_ERR_ERROR_IN_CRL_LAST_UPDATE_FIELD then 'V_ERR_ERROR_IN_CRL_LAST_UPDATE_FIELD'
+        when OpenSSL::X509::V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD then 'V_ERR_ERROR_IN_CRL_NEXT_UPDATE_FIELD'
+        when OpenSSL::X509::V_ERR_INVALID_CA then 'V_ERR_INVALID_CA'
+        when OpenSSL::X509::V_ERR_INVALID_PURPOSE then 'V_ERR_INVALID_PURPOSE'
+        when OpenSSL::X509::V_ERR_KEYUSAGE_NO_CERTSIGN then 'V_ERR_KEYUSAGE_NO_CERTSIGN'
+        when OpenSSL::X509::V_ERR_OUT_OF_MEM then 'V_ERR_OUT_OF_MEM'
+        when OpenSSL::X509::V_ERR_PATH_LENGTH_EXCEEDED then 'V_ERR_PATH_LENGTH_EXCEEDED'
+        when OpenSSL::X509::V_ERR_SELF_SIGNED_CERT_IN_CHAIN then 'V_ERR_SELF_SIGNED_CERT_IN_CHAIN'
+        when OpenSSL::X509::V_ERR_SUBJECT_ISSUER_MISMATCH then 'V_ERR_SUBJECT_ISSUER_MISMATCH'
+        when OpenSSL::X509::V_ERR_UNABLE_TO_DECODE_ISSUER_PUBLIC_KEY then 'V_ERR_UNABLE_TO_DECODE_ISSUER_PUBLIC_KEY'
+        when OpenSSL::X509::V_ERR_UNABLE_TO_DECRYPT_CERT_SIGNATURE then 'V_ERR_UNABLE_TO_DECODE_ISSUER_PUBLIC_KEY'
+        when OpenSSL::X509::V_ERR_UNABLE_TO_DECRYPT_CRL_SIGNATURE then 'V_ERR_UNABLE_TO_DECRYPT_CRL_SIGNATURE'
+        when OpenSSL::X509::V_ERR_UNABLE_TO_GET_CRL then 'V_ERR_UNABLE_TO_GET_CRL'
+        when OpenSSL::X509::V_ERR_UNABLE_TO_GET_ISSUER_CERT then 'V_ERR_UNABLE_TO_GET_ISSUER_CERT'
+        when OpenSSL::X509::V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY then 'V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY'
+        when OpenSSL::X509::V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE then 'V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE'
+        end
       end
 
       def established?
@@ -321,17 +357,30 @@ module Fluent
         opt = [@sender.send_timeout.to_i, 0].pack('L!L!')  # struct timeval
         sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
+        # TODO: SSLContext constructer parameter (SSL/TLS protocol version)
         context = OpenSSL::SSL::SSLContext.new
-        # TODO get @sender.certs and set into context
-        sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
+        context.ca_file = @cert_file_path
+        # TODO: context.ciphers= (SSL Shared key chiper protocols)
 
+        sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
         sslsession.connect
       
-        unless @sender.allow_self_signed_certificate
-          sslsession.post_connection_check(@hostlabel)
-          if sslsession.verify_result != OpenSSL::X509::V_OK
-            raise RuntimeError, "failed to verify certification while connecting host #{@host} as #{@hostlabel}"
+        begin
+          unless @sender.allow_self_signed_certificate
+            $log.debug sslsession.peer_cert.subject.to_s
+            sslsession.post_connection_check(@hostlabel)
+            verify = sslsession.verify_result
+            if verify != OpenSSL::X509::V_OK
+              err_name = verify_result_name(verify)
+              $log.warn "failed to verify certification while connecting host #{@host} as #{@hostlabel} (but not raised, why?)"
+              $log.warn "verify_result: #{err_name}"
+              raise RuntimeError, "failed to verify certification while connecting host #{@host} as #{@hostlabel}"
+            end
           end
+        rescue OpenSSL::SSL::SSLError => e
+          $log.warn "failed to verify certification while connecting host #{@host} as #{@hostlabel}"
+          self.shutdown
+          raise
         end
 
         $log.debug "ssl sessison connected"
