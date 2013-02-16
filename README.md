@@ -225,6 +225,7 @@ CONSIDER RETURN ACK OR NOT
   * access deny on accept (against DoS)
 * pluggable authentication database (input plugin)
   * RDBMS, LDAP, or ...
+  * Authentication by clients certificate
 * encryption algorithm option (output plugin)
 * balancing/failover (output plugin)
 * TESTS!
