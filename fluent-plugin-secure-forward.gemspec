@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 Gem::Specification.new do |gem|
   gem.name          = "fluent-plugin-secure-forward"
-  gem.version       = "0.0.1"
+  gem.version       = "0.0.2"
   gem.authors       = ["TAGOMORI Satoshi"]
   gem.email         = ["tagomoris@gmail.com"]
   gem.summary       = %q{Fluentd input/output plugin to forward over SSL with authentications}
@@ -13,8 +13,6 @@ Gem::Specification.new do |gem|
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.require_paths = ["lib"]
 
-  gem.add_development_dependency "fluentd"
-  gem.add_development_dependency "fluent-mixin-config-placeholders"
   gem.add_runtime_dependency "fluentd"
   gem.add_runtime_dependency "fluent-mixin-config-placeholders"
 end
