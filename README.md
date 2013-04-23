@@ -123,6 +123,7 @@ Minimal configurations like this:
     <match secret.data.**>
       type secure_forward
       shared_key secret_string
+      self_hostname client.fqdn.local
       <server>
         host server.fqdn.local  # or IP
         # port 24284
@@ -136,6 +137,7 @@ If server requires username/password, set `username` and `password` in `<server>
     <match secret.data.**>
       type secure_forward
       shared_key secret_string
+      self_hostname client.fqdn.local
       <server>
         host server.fqdn.local
         username repeatedly
