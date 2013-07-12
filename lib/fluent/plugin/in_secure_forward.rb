@@ -65,7 +65,7 @@ module Fluent
 
     def configure(conf)
       super
-      
+
       unless @cert_auto_generate || @cert_file_path
         raise Fluent::ConfigError, "One of 'cert_auto_generate' or 'cert_file_path' must be specified"
       end
@@ -118,7 +118,7 @@ module Fluent
       @sessions.each{ |s| s.shutdown }
       @sock.close
     end
-    
+
     def select_authenticate_users(node, username)
       if node.nil? || node[:users].nil?
         @users.select{|u| u[:username] == username}
@@ -166,10 +166,15 @@ module Fluent
 
       server = TCPServer.new(@bind, @port)
       @sock = OpenSSL::SSL::SSLServer.new(server, ctx)
-      loop do
-        while socket = @sock.accept
-          @sessions.push Session.new(self, socket)
+      begin
+        loop do
+          while socket = @sock.accept
+            @sessions.push Session.new(self, socket)
+          end
         end
+      rescue => e
+        $log.debug "error in shutdown", :error_class => e.class, :error => e
+        raise e
       end
     end
 
@@ -179,12 +184,12 @@ module Fluent
       # TODO: format error
       tag = msg[0].to_s
       entries = msg[1]
-    
+
       if entries.class == String
         # PackedForward
         es = MessagePackEventStream.new(entries, @cached_unpacker)
         Fluent::Engine.emit_stream(tag, es)
-  
+
       elsif entries.class == Array
         # Forward
         es = Fluent::MultiEventStream.new

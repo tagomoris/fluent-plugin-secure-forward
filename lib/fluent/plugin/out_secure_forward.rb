@@ -217,7 +217,7 @@ module Fluent
           @socket.close if @socket
         end
       rescue => e
-        $log.debug "#{e.class}:#{e.message}"
+        $log.debug "error on node shutdown #{e.class}:#{e.message}"
       end
 
       def verify_result_name(code)
@@ -362,12 +362,14 @@ module Fluent
         context.ca_file = @cert_file_path
         # TODO: context.ciphers= (SSL Shared key chiper protocols)
 
+        $log.debug "trying to connect ssl session", :host => @host, :port => @port
         sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
         sslsession.connect
-      
+        $log.debug "ssl session connected", :host => @host, :port => @port
+
         begin
           unless @sender.allow_self_signed_certificate
-            $log.debug sslsession.peer_cert.subject.to_s
+            $log.debug "checking peer's certificate", :subject => sslsession.peer_cert.subject
             sslsession.post_connection_check(@hostlabel)
             verify = sslsession.verify_result
             if verify != OpenSSL::X509::V_OK
@@ -378,12 +380,12 @@ module Fluent
             end
           end
         rescue OpenSSL::SSL::SSLError => e
-          $log.warn "failed to verify certification while connecting host #{@host} as #{@hostlabel}"
+          $log.warn "failed to verify certification while connecting ssl session", :host => @host, :hostlabel => @hostlabel
           self.shutdown
           raise
         end
 
-        $log.debug "ssl sessison connected"
+        $log.debug "ssl sessison connected", :host => @host, :port => @port
         @socket = sock
         @sslsession = sslsession
 
