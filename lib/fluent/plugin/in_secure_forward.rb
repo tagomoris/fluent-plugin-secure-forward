@@ -159,21 +159,26 @@ module Fluent
     end
 
     def run # sslsocket server thread
+      $log.trace "setup for ssl sessions"
       cert, key = self.certificate
       ctx = OpenSSL::SSL::SSLContext.new
       ctx.cert = cert
       ctx.key = key
 
+      $log.trace "start to listen", :bind => @bind, :port => @port
       server = TCPServer.new(@bind, @port)
+      $log.trace "starting SSL server", :bind => @bind, :port => @port
       @sock = OpenSSL::SSL::SSLServer.new(server, ctx)
       begin
+        $log.trace "accepting sessions"
         loop do
           while socket = @sock.accept
+            $log.trace "accept a ssl session"
             @sessions.push Session.new(self, socket)
           end
         end
       rescue OpenSSL::SSL::SSLError => e
-        raise unless e.message.start_with?('SSL_accept SYSCALL')
+        raise unless e.message.start_with?('SSL_accept SYSCALL') # signal trap on accept
       end
     end
 
@@ -199,7 +204,7 @@ module Fluent
           es.add(time, record)
         }
         Fluent::Engine.emit_stream(tag, es)
-  
+
       else
         # Message
         time = msg[1]
@@ -332,7 +337,7 @@ module Fluent
             return
           end
           send_data generate_pong(true, reason_or_salt)
-          
+
           $log.debug "connection established"
           @state = :established
         end
@@ -359,11 +364,11 @@ module Fluent
         read_length = @receiver.read_length
         read_interval = @receiver.read_interval
         socket_interval = @receiver.socket_interval
-        
+
         send_data generate_helo()
         @state = :pingpong
 
-        loop do 
+        loop do
           begin
             while @socket.read_nonblock(read_length, buf)
               if buf == ''
