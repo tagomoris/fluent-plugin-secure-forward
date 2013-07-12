@@ -173,7 +173,7 @@ module Fluent
           end
         end
       rescue => e
-        $log.debug "error in shutdown", :error_class => e.class, :error => e
+        $log.error "error in in_secure_forward shutdown", :error_class => e.class, :error => e
         raise e
       end
     end
