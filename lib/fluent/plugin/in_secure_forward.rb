@@ -172,9 +172,8 @@ module Fluent
             @sessions.push Session.new(self, socket)
           end
         end
-      rescue => e
-        p "error in in_secure_forward shutdown", :error_class => e.class, :error => e
-        raise
+      rescue OpenSSL::SSL::SSLError => e
+        raise unless e.message.start_with?('SSL_accept SYSCALL')
       end
     end
 
