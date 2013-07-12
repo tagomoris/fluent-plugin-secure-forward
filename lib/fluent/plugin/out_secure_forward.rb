@@ -369,8 +369,8 @@ module Fluent
         # TODO: SSLContext constructer parameter (SSL/TLS protocol version)
         $log.trace "initializing SSL contexts"
         context = OpenSSL::SSL::SSLContext.new
-        context.ca_file = @cert_file_path
-        # TODO: context.ciphers= (SSL Shared key chiper protocols)
+        # TODO: context.ca_file = (ca_file_path)
+        # TODO: context.ciphers = (SSL Shared key chiper protocols)
 
         $log.debug "trying to connect ssl session", :host => @host, :port => @port
         sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
