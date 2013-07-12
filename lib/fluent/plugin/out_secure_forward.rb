@@ -40,11 +40,14 @@ module Fluent
     #   password pass # if required
     # </server>
 
+    attr_reader :hostname_resolver
+
     def initialize
       super
       require 'socket'
       require 'openssl'
       require 'digest'
+      require 'resolve-hostname'
     end
 
     def configure(conf)
@@ -74,6 +77,8 @@ module Fluent
       if @nodes.size > 1
         raise Fluent::ConfigError, "Two or more servers are not supported yet."
       end
+
+      @hostname_resolver = Resolve::Hostname.new(:system_resolver => true)
 
       true
     end
@@ -349,8 +354,12 @@ module Fluent
 
       def connect
         $log.debug "starting client"
-        sock = TCPSocket.new(@host, @port)
 
+        addr = @sender.hostname_resolver.getaddress(@host)
+        $log.debug "create tcp socket to node", :host => @host, :address => addr, :port => @port
+        sock = TCPSocket.new(addr, @port)
+
+        $log.trace "changing socket options"
         opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
         sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
 
@@ -358,6 +367,7 @@ module Fluent
         sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
         # TODO: SSLContext constructer parameter (SSL/TLS protocol version)
+        $log.trace "initializing SSL contexts"
         context = OpenSSL::SSL::SSLContext.new
         context.ca_file = @cert_file_path
         # TODO: context.ciphers= (SSL Shared key chiper protocols)
