@@ -47,7 +47,7 @@ module Fluent
       require 'socket'
       require 'openssl'
       require 'digest'
-      require 'resolve-hostname'
+      require 'resolve/hostname'
     end
 
     def configure(conf)
