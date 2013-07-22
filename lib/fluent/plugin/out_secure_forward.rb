@@ -91,8 +91,11 @@ module Fluent
     def start
       super
 
+      $log.debug "starting secure-forward"
       OpenSSL::Random.seed(File.read("/dev/random", 16))
+      $log.debug "start to connect target nodes"
       @nodes.each do |node|
+        $log.debug "connecting node", :host => node.host, :port => node.port
         node.start
       end
       @nodewatcher = Thread.new(&method(:node_watcher))
@@ -374,6 +377,7 @@ module Fluent
 
         $log.debug "trying to connect ssl session", :host => @host, :port => @port
         sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
+        # TODO: check connection failure
         sslsession.connect
         $log.debug "ssl session connected", :host => @host, :port => @port
 
