@@ -92,7 +92,7 @@ module Fluent
       super
 
       $log.debug "starting secure-forward"
-      OpenSSL::Random.seed(File.read("/dev/random", 16))
+      OpenSSL::Random.seed(File.read("/dev/urandom", 16))
       $log.debug "start to connect target nodes"
       @nodes.each do |node|
         $log.debug "connecting node", :host => node.host, :port => node.port

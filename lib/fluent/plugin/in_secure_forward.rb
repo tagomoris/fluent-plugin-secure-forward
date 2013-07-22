@@ -106,7 +106,7 @@ module Fluent
 
     def start
       super
-      OpenSSL::Random.seed(File.read("/dev/random", 16))
+      OpenSSL::Random.seed(File.read("/dev/urandom", 16))
       @sessions = []
       @sock = nil
       @listener = Thread.new(&method(:run))
