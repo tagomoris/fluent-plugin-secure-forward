@@ -375,7 +375,7 @@ module Fluent
         # TODO: context.ca_file = (ca_file_path)
         # TODO: context.ciphers = (SSL Shared key chiper protocols)
 
-        $log.debug "trying to connect ssl session", :host => @host, :port => @port
+        $log.debug "trying to connect ssl session", :host => @host, :ipaddr => addr, :port => @port
         sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
         # TODO: check connection failure
         sslsession.connect
