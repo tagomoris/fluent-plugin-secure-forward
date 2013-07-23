@@ -169,11 +169,12 @@ module Fluent
       server = TCPServer.new(@bind, @port)
       $log.trace "starting SSL server", :bind => @bind, :port => @port
       @sock = OpenSSL::SSL::SSLServer.new(server, ctx)
+      @sock.start_immediately = false
       begin
         $log.trace "accepting sessions"
         loop do
           while socket = @sock.accept
-            $log.trace "accept a ssl session"
+            $log.trace "accept tcp connection (ssl session not established yet)"
             @sessions.push Session.new(self, socket)
           end
         end
@@ -351,11 +352,21 @@ module Fluent
       def start
         $log.debug "starting server"
 
+        $log.trace "accepting ssl session"
+        begin
+          @socket.accept
+        rescue OpenSSL::SSL::SSLError => e
+          $log.debug "failed to establish ssl session"
+          self.shutdown
+          return
+        end
+
         proto, port, host, ipaddr = @socket.io.addr
         @node = check_node(host, ipaddr, port, proto)
         if @node.nil? && (! @receiver.allow_anonymous_source)
           $log.warn "Connection required from unknown host '#{host}' (#{ipaddr}), disconnecting..."
           self.shutdown
+          return
         end
 
         @auth_key_salt = generate_salt
