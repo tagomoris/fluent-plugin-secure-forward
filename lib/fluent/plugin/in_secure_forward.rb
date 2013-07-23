@@ -397,9 +397,10 @@ module Fluent
             break
           end
         end
-        self.shutdown
       rescue => e
         $log.warn e
+      ensure
+        self.shutdown
       end
 
       def shutdown
