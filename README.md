@@ -2,7 +2,7 @@
 
 Fluentd input/output plugin to forward fluentd messages over SSL with authentication.
 
-**THIS PLUGIN IS PoC, and now version is HIGHLY EXPERIMENTAL.**
+**CURRENT STATUS: HIGHLY EXPERIMENTAL**
 
 This plugin makes you to be able to:
 
@@ -11,10 +11,6 @@ This plugin makes you to be able to:
    * with self-signed certificate (and generate certificate in in\_secure\_forward automatically)
  * authenticate by shared\_key check from both of client(out\_secure\_forward) and server(in\_secure\_forward)
  * authenticate with username / password pairs
-
-**DON'T USE THIS PLUGIN OF THIS VERSION (v0.0.x) IN PRODUCTION ENVIRONMENT.**
-
-We need new developer/maintainer of this plugin, who wants to use this plugin in their systems.
 
 ## Configuration
 

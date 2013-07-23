@@ -65,7 +65,7 @@ module Fluent
 
     def configure(conf)
       super
-      
+
       unless @cert_auto_generate || @cert_file_path
         raise Fluent::ConfigError, "One of 'cert_auto_generate' or 'cert_file_path' must be specified"
       end
@@ -106,7 +106,7 @@ module Fluent
 
     def start
       super
-      OpenSSL::Random.seed(File.read("/dev/random", 16))
+      OpenSSL::Random.seed(File.read("/dev/urandom", 16))
       @sessions = []
       @sock = nil
       @listener = Thread.new(&method(:run))
@@ -118,7 +118,7 @@ module Fluent
       @sessions.each{ |s| s.shutdown }
       @sock.close
     end
-    
+
     def select_authenticate_users(node, username)
       if node.nil? || node[:users].nil?
         @users.select{|u| u[:username] == username}
@@ -159,17 +159,27 @@ module Fluent
     end
 
     def run # sslsocket server thread
+      $log.trace "setup for ssl sessions"
       cert, key = self.certificate
       ctx = OpenSSL::SSL::SSLContext.new
       ctx.cert = cert
       ctx.key = key
 
+      $log.trace "start to listen", :bind => @bind, :port => @port
       server = TCPServer.new(@bind, @port)
+      $log.trace "starting SSL server", :bind => @bind, :port => @port
       @sock = OpenSSL::SSL::SSLServer.new(server, ctx)
-      loop do
-        while socket = @sock.accept
-          @sessions.push Session.new(self, socket)
+      @sock.start_immediately = false
+      begin
+        $log.trace "accepting sessions"
+        loop do
+          while socket = @sock.accept
+            $log.trace "accept tcp connection (ssl session not established yet)"
+            @sessions.push Session.new(self, socket)
+          end
         end
+      rescue OpenSSL::SSL::SSLError => e
+        raise unless e.message.start_with?('SSL_accept SYSCALL') # signal trap on accept
       end
     end
 
@@ -179,12 +189,12 @@ module Fluent
       # TODO: format error
       tag = msg[0].to_s
       entries = msg[1]
-    
+
       if entries.class == String
         # PackedForward
         es = MessagePackEventStream.new(entries, @cached_unpacker)
         Fluent::Engine.emit_stream(tag, es)
-  
+
       elsif entries.class == Array
         # Forward
         es = Fluent::MultiEventStream.new
@@ -195,7 +205,7 @@ module Fluent
           es.add(time, record)
         }
         Fluent::Engine.emit_stream(tag, es)
-  
+
       else
         # Message
         time = msg[1]
@@ -328,7 +338,7 @@ module Fluent
             return
           end
           send_data generate_pong(true, reason_or_salt)
-          
+
           $log.debug "connection established"
           @state = :established
         end
@@ -342,11 +352,21 @@ module Fluent
       def start
         $log.debug "starting server"
 
+        $log.trace "accepting ssl session"
+        begin
+          @socket.accept
+        rescue OpenSSL::SSL::SSLError => e
+          $log.debug "failed to establish ssl session"
+          self.shutdown
+          return
+        end
+
         proto, port, host, ipaddr = @socket.io.addr
         @node = check_node(host, ipaddr, port, proto)
         if @node.nil? && (! @receiver.allow_anonymous_source)
           $log.warn "Connection required from unknown host '#{host}' (#{ipaddr}), disconnecting..."
           self.shutdown
+          return
         end
 
         @auth_key_salt = generate_salt
@@ -355,11 +375,11 @@ module Fluent
         read_length = @receiver.read_length
         read_interval = @receiver.read_interval
         socket_interval = @receiver.socket_interval
-        
+
         send_data generate_helo()
         @state = :pingpong
 
-        loop do 
+        loop do
           begin
             while @socket.read_nonblock(read_length, buf)
               if buf == ''
@@ -377,9 +397,10 @@ module Fluent
             break
           end
         end
-        self.shutdown
       rescue => e
         $log.warn e
+      ensure
+        self.shutdown
       end
 
       def shutdown

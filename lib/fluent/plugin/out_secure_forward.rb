@@ -40,11 +40,14 @@ module Fluent
     #   password pass # if required
     # </server>
 
+    attr_reader :hostname_resolver
+
     def initialize
       super
       require 'socket'
       require 'openssl'
       require 'digest'
+      require 'resolve/hostname'
     end
 
     def configure(conf)
@@ -75,6 +78,8 @@ module Fluent
         raise Fluent::ConfigError, "Two or more servers are not supported yet."
       end
 
+      @hostname_resolver = Resolve::Hostname.new(:system_resolver => true)
+
       true
     end
 
@@ -86,8 +91,11 @@ module Fluent
     def start
       super
 
-      OpenSSL::Random.seed(File.read("/dev/random", 16))
+      $log.debug "starting secure-forward"
+      OpenSSL::Random.seed(File.read("/dev/urandom", 16))
+      $log.debug "start to connect target nodes"
       @nodes.each do |node|
+        $log.debug "connecting node", :host => node.host, :port => node.port
         node.start
       end
       @nodewatcher = Thread.new(&method(:node_watcher))
@@ -217,7 +225,7 @@ module Fluent
           @socket.close if @socket
         end
       rescue => e
-        $log.debug "#{e.class}:#{e.message}"
+        $log.debug "error on node shutdown #{e.class}:#{e.message}"
       end
 
       def verify_result_name(code)
@@ -349,8 +357,12 @@ module Fluent
 
       def connect
         $log.debug "starting client"
-        sock = TCPSocket.new(@host, @port)
 
+        addr = @sender.hostname_resolver.getaddress(@host)
+        $log.debug "create tcp socket to node", :host => @host, :address => addr, :port => @port
+        sock = TCPSocket.new(addr, @port)
+
+        $log.trace "changing socket options"
         opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
         sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
 
@@ -358,16 +370,20 @@ module Fluent
         sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
         # TODO: SSLContext constructer parameter (SSL/TLS protocol version)
+        $log.trace "initializing SSL contexts"
         context = OpenSSL::SSL::SSLContext.new
-        context.ca_file = @cert_file_path
-        # TODO: context.ciphers= (SSL Shared key chiper protocols)
+        # TODO: context.ca_file = (ca_file_path)
+        # TODO: context.ciphers = (SSL Shared key chiper protocols)
 
+        $log.debug "trying to connect ssl session", :host => @host, :ipaddr => addr, :port => @port
         sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
+        # TODO: check connection failure
         sslsession.connect
-      
+        $log.debug "ssl session connected", :host => @host, :port => @port
+
         begin
           unless @sender.allow_self_signed_certificate
-            $log.debug sslsession.peer_cert.subject.to_s
+            $log.debug "checking peer's certificate", :subject => sslsession.peer_cert.subject
             sslsession.post_connection_check(@hostlabel)
             verify = sslsession.verify_result
             if verify != OpenSSL::X509::V_OK
@@ -378,12 +394,12 @@ module Fluent
             end
           end
         rescue OpenSSL::SSL::SSLError => e
-          $log.warn "failed to verify certification while connecting host #{@host} as #{@hostlabel}"
+          $log.warn "failed to verify certification while connecting ssl session", :host => @host, :hostlabel => @hostlabel
           self.shutdown
           raise
         end
 
-        $log.debug "ssl sessison connected"
+        $log.debug "ssl sessison connected", :host => @host, :port => @port
         @socket = sock
         @sslsession = sslsession
 

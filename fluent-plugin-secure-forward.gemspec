@@ -5,7 +5,7 @@ Gem::Specification.new do |gem|
   gem.authors       = ["TAGOMORI Satoshi"]
   gem.email         = ["tagomoris@gmail.com"]
   gem.summary       = %q{Fluentd input/output plugin to forward over SSL with authentications}
-  gem.description   = %q{This version is HIGHLY EXPERIMENTAL. DON'T USE IN PRODUCTION}
+  gem.description   = %q{This version is HIGHLY EXPERIMENTAL.}
   gem.homepage      = "https://github.com/tagomoris/fluent-plugin-secure-forward"
 
   gem.files         = `git ls-files`.split($\)
@@ -15,4 +15,5 @@ Gem::Specification.new do |gem|
 
   gem.add_runtime_dependency "fluentd"
   gem.add_runtime_dependency "fluent-mixin-config-placeholders"
+  gem.add_runtime_dependency "resolve-hostname"
 end
