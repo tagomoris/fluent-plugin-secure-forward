@@ -398,7 +398,7 @@ module Fluent
           end
         end
       rescue => e
-        $log.warn e
+        $log.warn "unexpected error in in_secure_forward", :error_class => e.class, :error => e
       ensure
         self.shutdown
       end
