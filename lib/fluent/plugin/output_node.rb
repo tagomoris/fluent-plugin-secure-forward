@@ -34,7 +34,7 @@ class Fluent::SecureForwardOutput::Node
   end
 
   def dup
-    Node.new(
+    self.class.new(
       @sender,
       @shared_key,
       {'host' => @host, 'port' => @port, 'hostlabel' => @hostlabel, 'username' => @username, 'password' => @password}
