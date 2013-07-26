@@ -81,9 +81,8 @@ module Fluent
           raise Fluent::ConfigError, "unknown config tag name #{element.name}"
         end
       end
-      if @nodes.size > 1
-        raise Fluent::ConfigError, "Two or more servers are not supported yet."
-      end
+      @next_node = 0
+      @mutex = Mutex.new
 
       @hostname_resolver = Resolve::Hostname.new(:system_resolver => true)
 
@@ -91,8 +90,21 @@ module Fluent
     end
 
     def select_node
-      #TODO: roundrobin? random?
-      @nodes.select(&:established?).first
+      tries = 0
+      nodes = @nodes.size
+      @mutex.synchronize {
+        n = nil
+        while tries <= nodes
+          n = @nodes[@next_node]
+          @next_node += 1
+          @next_node = 0 if @next_node >= nodes
+
+          return n if n && n.established?
+
+          tries += 1
+        end
+        nil
+      }
     end
 
     def start

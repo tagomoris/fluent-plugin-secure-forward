@@ -126,7 +126,7 @@ Minimal configurations like this:
       </server>
     </match>
 
-At this version (v0.0.x), only one `<server>` section can be specified.
+When specified 2 or more `<server>`, this plugin uses these nodes in simple round-robin order.
 
 If server requires username/password, set `username` and `password` in `<server>` section:
 
@@ -135,9 +135,14 @@ If server requires username/password, set `username` and `password` in `<server>
       shared_key secret_string
       self_hostname client.fqdn.local
       <server>
-        host server.fqdn.local
+        host first.fqdn.local
         username repeatedly
         password sushi
+      </server>
+      <server>
+        host second.fqdn.local
+        username sasatatsu
+        password karaage
       </server>
     </match>
 
