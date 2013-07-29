@@ -11,6 +11,10 @@ class Fluent::SecureForwardOutput::Node
   attr_accessor :authentication, :keepalive
   attr_accessor :socket, :sslsession, :unpacker, :shared_key_salt, :state
 
+  attr_accessor :first_session, :detach
+
+  attr_reader :expire
+
   def initialize(sender, shared_key, conf)
     @sender = sender
     @shared_key = shared_key
@@ -22,7 +26,11 @@ class Fluent::SecureForwardOutput::Node
     @password = conf['password'] || ''
 
     @authentication = nil
+
     @keepalive = nil
+    @expire = nil
+    @first_session = false
+    @detach = false
 
     @socket = nil
     @sslsession = nil
@@ -65,8 +73,20 @@ class Fluent::SecureForwardOutput::Node
     $log.debug "error on node shutdown #{e.class}:#{e.message}"
   end
 
+  def join
+    @thread && @thread.join
+  end
+
   def established?
     @state == :established
+  end
+
+  def expired?
+    if @keepalive.nil? || @keepalive == 0
+      false
+    else
+      @expire && @expire < Time.now
+    end
   end
 
   def generate_salt
@@ -81,7 +101,7 @@ class Fluent::SecureForwardOutput::Node
     end
     opts = message[1]
     @authentication = opts['auth']
-    @keepalive = opts['keepalive']
+    @allow_keepalive = opts['keepalive']
     true
   end
 
@@ -135,7 +155,6 @@ class Fluent::SecureForwardOutput::Node
 
     case @state
     when :helo
-      # TODO: log debug
       unless check_helo(data)
         $log.warn "received invalid helo message from #{@host}"
         self.shutdown
@@ -150,8 +169,10 @@ class Fluent::SecureForwardOutput::Node
         self.shutdown
         return
       end
-      $log.info "connection established to #{@host}"
+      $log.info "connection established to #{@host}" if @first_session
       @state = :established
+      @expire = Time.now + @keepalive if @keepalive && @keepalive > 0
+      $log.debug "connection established", :host => @host, :port => @port, :expire => @expire
     end
   end
 
@@ -209,6 +230,8 @@ class Fluent::SecureForwardOutput::Node
     socket_interval = @sender.socket_interval
 
     loop do
+      break if @detach
+
       begin
         while @sslsession.read_nonblock(read_length, buf)
           if buf == ''

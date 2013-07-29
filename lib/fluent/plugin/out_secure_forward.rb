@@ -20,7 +20,7 @@ module Fluent
 
     config_param :shared_key, :string
 
-    # config_param :keepalive, :time, :default => 3600 # 0 means disable keepalive
+    config_param :keepalive, :time, :default => nil # nil/0 means disable keepalive
 
     config_param :send_timeout, :time, :default => 60
     # config_param :hard_timeout, :time, :default => 60
@@ -33,7 +33,7 @@ module Fluent
     config_param :read_interval_msec, :integer, :default => 50 # 50ms
     config_param :socket_interval_msec, :integer, :default => 200 # 200ms
 
-    config_param :reconnect_interval, :time, :default => 15
+    config_param :reconnect_interval, :time, :default => 5
 
     attr_reader :read_interval, :socket_interval
 
@@ -76,7 +76,10 @@ module Fluent
             raise Fluent::ConfigError, "host missing in <server>"
           end
           node_shared_key = element['shared_key'] || @shared_key
-          @nodes.push Node.new(self, node_shared_key, element)
+          node = Node.new(self, node_shared_key, element)
+          node.first_session = true
+          node.keepalive = @keepalive
+          @nodes.push node
         else
           raise Fluent::ConfigError, "unknown config tag name #{element.name}"
         end
@@ -123,25 +126,39 @@ module Fluent
     def node_watcher
       loop do
         sleep @reconnect_interval
-        $log.debug "in node health watcher"
+
+        $log.trace "in node health watcher"
+
         (0...(@nodes.size)).each do |i|
-          $log.debug "node health watcher for #{@nodes[i].host}"
-          if @nodes[i].state != :established
-            $log.info "dead connection found: #{@nodes[i].host}, reconnecting..."
-            node = @nodes[i]
-            @nodes[i] = node.dup
-            @nodes[i].start
+          $log.trace "node health watcher for #{@nodes[i].host}"
+
+          next if @nodes[i].established? && ! @nodes[i].expired?
+
+          $log.info "dead connection found: #{@nodes[i].host}, reconnecting..." unless @nodes[i].established?
+
+          node = @nodes[i]
+          $log.debug "reconnecting to node", :host => node.host, :port => node.port, :expire => node.expire, :expired => node.expired?
+
+          @nodes[i] = node.dup
+          @nodes[i].start
+          begin
             node.shutdown
+          rescue => e
+            $log.warn "error in shutdown of dead connection", :error_class => e.class, :error => e
           end
         end
       end
     end
 
     def shutdown
+      super
+
       @nodewatcher.kill
       @nodewatcher.join
+
       @nodes.each do |node|
-        node.shutdown
+        node.detach = true
+        node.join
       end
     end
 

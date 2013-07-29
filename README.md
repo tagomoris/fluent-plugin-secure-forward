@@ -2,8 +2,6 @@
 
 Fluentd input/output plugin to forward fluentd messages over SSL with authentication.
 
-**CURRENT STATUS: HIGHLY EXPERIMENTAL**
-
 This plugin makes you to be able to:
 
  * protect your data from others in transferring with SSL
@@ -146,6 +144,19 @@ If server requires username/password, set `username` and `password` in `<server>
       </server>
     </match>
 
+To specify keepalive timeouts, use `keepalive` configuration with seconds. SSL connection will be disconnected and re-connected for each 1 hour with configuration below. In Default (and with `keepalive 0`), connections will not be disconnected without any communication troubles. (This feature is for dns name updates, and SSL common key refreshing.)
+
+    <match secret.data.**>
+      type secure_forward
+      shared_key secret_string
+      self_hostname client.fqdn.local
+      keepalive 3600
+      <server>
+        host server.fqdn.local  # or IP
+        # port 24284
+      </server>
+    </match>
+
 ## Senario (developer document)
 
 * server
@@ -230,7 +241,6 @@ CONSIDER RETURN ACK OR NOT
   * RDBMS, LDAP, or ...
   * Authentication by clients certificate
 * encryption algorithm option (output plugin)
-* balancing/failover (output plugin)
 * TESTS!
 
 * GET NEW MAINTAINER
