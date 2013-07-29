@@ -7,6 +7,7 @@ Gem::Specification.new do |gem|
   gem.summary       = %q{Fluentd input/output plugin to forward over SSL with authentications}
   gem.description   = %q{Testing version}
   gem.homepage      = "https://github.com/tagomoris/fluent-plugin-secure-forward"
+  gem.license       = "APLv2"
 
   gem.files         = `git ls-files`.split($\)
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
