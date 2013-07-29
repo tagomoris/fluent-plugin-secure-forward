@@ -92,7 +92,7 @@ module Fluent
       true
     end
 
-    def select_node
+    def select_node(permit_standby=false)
       tries = 0
       nodes = @nodes.size
       @mutex.synchronize {
@@ -102,7 +102,7 @@ module Fluent
           @next_node += 1
           @next_node = 0 if @next_node >= nodes
 
-          return n if n && n.established?
+          return n if n && n.established? && (!n.standby || permit_standby)
 
           tries += 1
         end
@@ -164,10 +164,11 @@ module Fluent
 
     def write_objects(tag, es)
       #TODO: check errors
-      node = select_node
+      node = select_node || select_node(true)
       unless node
         raise "no one nodes with valid ssl session"
       end
+      $log.trace "selected node", :host => node.host, :port => node.port, :standby => node.standby
 
       begin
         send_data(node, tag, es)

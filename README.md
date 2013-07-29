@@ -124,7 +124,7 @@ Minimal configurations like this:
       </server>
     </match>
 
-When specified 2 or more `<server>`, this plugin uses these nodes in simple round-robin order.
+When specified 2 or more `<server>`, this plugin uses these nodes in simple round-robin order. And servers with `standby yes` will be selected until all of non-standby servers goes down.
 
 If server requires username/password, set `username` and `password` in `<server>` section:
 
@@ -141,6 +141,12 @@ If server requires username/password, set `username` and `password` in `<server>
         host second.fqdn.local
         username sasatatsu
         password karaage
+      </server>
+      <server>
+        host standby.fqdn.local
+        username kzk
+        password hawaii
+        standby  yes
       </server>
     </match>
 

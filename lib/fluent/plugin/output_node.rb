@@ -7,7 +7,8 @@
 require_relative 'openssl_util'
 
 class Fluent::SecureForwardOutput::Node
-  attr_accessor :host, :port, :hostlabel, :shared_key, :username, :password
+  attr_accessor :host, :port, :hostlabel, :shared_key, :username, :password, :standby
+
   attr_accessor :authentication, :keepalive
   attr_accessor :socket, :sslsession, :unpacker, :shared_key_salt, :state
 
@@ -24,6 +25,7 @@ class Fluent::SecureForwardOutput::Node
     @hostlabel = conf['hostlabel'] || conf['host']
     @username = conf['username'] || ''
     @password = conf['password'] || ''
+    @standby = conf.has_key?('standby') && Fluent::Config.bool_value(conf['standby']) != false
 
     @authentication = nil
 
