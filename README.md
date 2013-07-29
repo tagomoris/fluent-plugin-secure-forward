@@ -42,7 +42,7 @@ To check username/password from clients, like this:
       type secure_forward
       shared_key         secret_string
       self_hostname      server.fqdn.local
-      cert_auto_generate yes               
+      cert_auto_generate yes
       authentication     yes # Deny clients without valid username/password
       <user>
         username tagomoris
@@ -118,6 +118,18 @@ Minimal configurations like this:
       type secure_forward
       shared_key secret_string
       self_hostname client.fqdn.local
+      <server>
+        host server.fqdn.local  # or IP
+        # port 24284
+      </server>
+    </match>
+
+Without hostname ACL (and it's not implemented yet), `self_hostname` is not checked in any state. `${hostname}` placeholder is available for such cases.
+
+    <match secret.data.**>
+      type secure_forward
+      shared_key secret_string
+      self_hostname ${hostname}
       <server>
         host server.fqdn.local  # or IP
         # port 24284
