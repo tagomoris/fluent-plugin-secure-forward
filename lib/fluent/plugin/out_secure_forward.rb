@@ -163,7 +163,6 @@ module Fluent
     end
 
     def write_objects(tag, es)
-      #TODO: check errors
       node = select_node || select_node(true)
       unless node
         raise "no one nodes with valid ssl session"
@@ -172,8 +171,8 @@ module Fluent
 
       begin
         send_data(node, tag, es)
-      rescue IOError => e
-        $log.warn "Failed to send messages to #{node.host}, parging."
+      rescue Errno::EPIPE, IOError, OpenSSL::SSL::SSLError => e
+        $log.warn "Failed to send messages to #{node.host}, parging.", :error_class => e.class, :error => e
         node.shutdown
       end
     end
