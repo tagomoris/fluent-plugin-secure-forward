@@ -44,11 +44,13 @@ class Fluent::SecureForwardOutput::Node
   end
 
   def dup
-    self.class.new(
+    renewed = self.class.new(
       @sender,
       @shared_key,
       {'host' => @host, 'port' => @port, 'hostlabel' => @hostlabel, 'username' => @username, 'password' => @password}
     )
+    renewed.keepalive = @keepalive if @keepalive
+    renewed
   end
 
   def start
