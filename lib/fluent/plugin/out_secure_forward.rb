@@ -173,7 +173,13 @@ module Fluent
         send_data(node, tag, es)
       rescue Errno::EPIPE, IOError, OpenSSL::SSL::SSLError => e
         $log.warn "Failed to send messages to #{node.host}, parging.", :error_class => e.class, :error => e
-        node.shutdown
+        begin
+          node.shutdown
+        rescue => e2
+          # ignore all errors
+        end
+
+        raise # to retry #write_objects
       end
     end
 
