@@ -240,7 +240,7 @@ To specify keepalive timeouts, use `keepalive` configuration with seconds. SSL c
 
 CONSIDER RETURN ACK OR NOT
 
- * This version (v0.0.1) has no ACKs
+ * Current version has no ACKs
    * only supports burst transferring (same as ForwardInput/Output)
  * ack for each message ?
  * pipeline mode and one-by-one mode ?
@@ -260,8 +260,6 @@ CONSIDER RETURN ACK OR NOT
   * Authentication by clients certificate
 * encryption algorithm option (output plugin)
 * TESTS!
-
-* GET NEW MAINTAINER
 
 ## Copyright
 
