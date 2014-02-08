@@ -1,4 +1,4 @@
-# fluent-plugin-secure-forward
+# fluent-plugin-secure-forward, a plugin for [Fluentd](http://fluentd.org)
 
 Fluentd input/output plugin to forward fluentd messages over SSL with authentication.
 
