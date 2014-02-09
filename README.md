@@ -1,6 +1,6 @@
 # fluent-plugin-secure-forward
 
-Fluentd input/output plugin to forward fluentd messages over SSL with authentication.
+[Fluentd](http://fluentd.org) input/output plugin to forward fluentd messages over SSL with authentication.
 
 This plugin makes you to be able to:
 
