@@ -57,6 +57,11 @@ module Fluent
       require 'resolve/hostname'
     end
 
+    # Define `log` method for v0.10.42 or earlier
+    unless method_defined?(:log)
+      define_method("log") { $log }
+    end
+
     def configure(conf)
       super
 
@@ -113,11 +118,11 @@ module Fluent
     def start
       super
 
-      $log.debug "starting secure-forward"
+      log.debug "starting secure-forward"
       OpenSSL::Random.seed(File.read("/dev/urandom", 16))
-      $log.debug "start to connect target nodes"
+      log.debug "start to connect target nodes"
       @nodes.each do |node|
-        $log.debug "connecting node", :host => node.host, :port => node.port
+        log.debug "connecting node", :host => node.host, :port => node.port
         node.start
       end
       @nodewatcher = Thread.new(&method(:node_watcher))
@@ -127,24 +132,24 @@ module Fluent
       loop do
         sleep @reconnect_interval
 
-        $log.trace "in node health watcher"
+        log.trace "in node health watcher"
 
         (0...(@nodes.size)).each do |i|
-          $log.trace "node health watcher for #{@nodes[i].host}"
+          log.trace "node health watcher for #{@nodes[i].host}"
 
           next if @nodes[i].established? && ! @nodes[i].expired?
 
-          $log.info "dead connection found: #{@nodes[i].host}, reconnecting..." unless @nodes[i].established?
+          log.info "dead connection found: #{@nodes[i].host}, reconnecting..." unless @nodes[i].established?
 
           node = @nodes[i]
-          $log.debug "reconnecting to node", :host => node.host, :port => node.port, :expire => node.expire, :expired => node.expired?
+          log.debug "reconnecting to node", :host => node.host, :port => node.port, :expire => node.expire, :expired => node.expired?
 
           @nodes[i] = node.dup
           @nodes[i].start
           begin
             node.shutdown
           rescue => e
-            $log.warn "error in shutdown of dead connection", :error_class => e.class, :error => e
+            log.warn "error in shutdown of dead connection", :error_class => e.class, :error => e
           end
         end
       end
@@ -167,12 +172,12 @@ module Fluent
       unless node
         raise "no one nodes with valid ssl session"
       end
-      $log.trace "selected node", :host => node.host, :port => node.port, :standby => node.standby
+      log.trace "selected node", :host => node.host, :port => node.port, :standby => node.standby
 
       begin
         send_data(node, tag, es)
       rescue Errno::EPIPE, IOError, OpenSSL::SSL::SSLError => e
-        $log.warn "Failed to send messages to #{node.host}, parging.", :error_class => e.class, :error => e
+        log.warn "Failed to send messages to #{node.host}, parging.", :error_class => e.class, :error => e
         begin
           node.shutdown
         rescue => e2

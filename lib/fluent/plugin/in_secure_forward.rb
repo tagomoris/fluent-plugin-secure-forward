@@ -69,6 +69,11 @@ module Fluent
       require 'digest'
     end
 
+    # Define `log` method for v0.10.42 or earlier
+    unless method_defined?(:log)
+      define_method("log") { $log }
+    end
+
     def configure(conf)
       super
 
@@ -165,22 +170,22 @@ module Fluent
     end
 
     def run # sslsocket server thread
-      $log.trace "setup for ssl sessions"
+      log.trace "setup for ssl sessions"
       cert, key = self.certificate
       ctx = OpenSSL::SSL::SSLContext.new
       ctx.cert = cert
       ctx.key = key
 
-      $log.trace "start to listen", :bind => @bind, :port => @port
+      log.trace "start to listen", :bind => @bind, :port => @port
       server = TCPServer.new(@bind, @port)
-      $log.trace "starting SSL server", :bind => @bind, :port => @port
+      log.trace "starting SSL server", :bind => @bind, :port => @port
       @sock = OpenSSL::SSL::SSLServer.new(server, ctx)
       @sock.start_immediately = false
       begin
-        $log.trace "accepting sessions"
+        log.trace "accepting sessions"
         loop do
           while socket = @sock.accept
-            $log.trace "accept tcp connection (ssl session not established yet)"
+            log.trace "accept tcp connection (ssl session not established yet)"
             @sessions.push Session.new(self, socket)
           end
         end
