@@ -17,7 +17,7 @@ install with gem or fluent-gem command as:
 ### native gem
 $ gem install fluent-plugin-secure-forward
 
-### td-agent gem
+### fluentd gem
 $ fluent-gem install fluent-plugin-secure-forward
 `````
 
