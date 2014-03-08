@@ -10,6 +10,17 @@ This plugin makes you to be able to:
  * authenticate by shared\_key check from both of client(out\_secure\_forward) and server(in\_secure\_forward)
  * authenticate with username / password pairs
 
+## Installation
+install with gem or fluent-gem command as:
+
+`````
+### native gem
+$ gem install fluent-plugin-secure-forward
+
+### fluentd gem
+$ fluent-gem install fluent-plugin-secure-forward
+`````
+
 ## Configuration
 
 ### SecureForwardInput
