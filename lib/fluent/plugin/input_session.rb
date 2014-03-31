@@ -150,7 +150,7 @@ class Fluent::SecureForwardInput::Session
       return
     end
 
-    proto, port, host, ipaddr = @socket.io.addr
+    proto, port, host, ipaddr = @socket.io.peeraddr
     @node = check_node(host, ipaddr, port, proto)
     if @node.nil? && (! @receiver.allow_anonymous_source)
       $log.warn "Connection required from unknown host '#{host}' (#{ipaddr}), disconnecting..."
