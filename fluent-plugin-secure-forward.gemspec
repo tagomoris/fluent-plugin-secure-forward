@@ -14,7 +14,7 @@ Gem::Specification.new do |gem|
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.require_paths = ["lib"]
 
-  gem.add_runtime_dependency "fluentd"
+  gem.add_runtime_dependency "fluentd", ">= 0.10.46"
   gem.add_runtime_dependency "fluent-mixin-config-placeholders"
   gem.add_runtime_dependency "resolve-hostname"
   gem.add_development_dependency "rake"
