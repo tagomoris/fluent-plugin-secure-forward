@@ -21,6 +21,35 @@ CONFIG
     assert_equal 'server.fqdn.local', p1.self_hostname
     assert p1.cert_auto_generate
 
+    assert_raise(Fluent::ConfigError){ create_driver(<<CONFIG) }
+  type secure_forward
+  shared_key         secret_string
+  self_hostname      server.fqdn.local
+  cert_auto_generate yes
+  authentication     yes # Deny clients without valid username/password
+  <user>
+    username tagomoris
+    password foobar012
+  </user>
+  <user>
+    password yakiniku
+  </user>
+CONFIG
+    assert_raise(Fluent::ConfigError){ create_driver(<<CONFIG) }
+  type secure_forward
+  shared_key         secret_string
+  self_hostname      server.fqdn.local
+  cert_auto_generate yes
+  authentication     yes # Deny clients without valid username/password
+  <user>
+    username tagomoris
+    password foobar012
+  </user>
+  <user>
+    username frsyuki
+  </user>
+CONFIG
+
     p2 = nil
     assert_nothing_raised { p2 = create_driver(<<CONFIG).instance }
   type secure_forward
@@ -40,6 +69,41 @@ CONFIG
     assert_equal 2, p2.users.size
     assert_equal 'tagomoris', p2.users[0].username
     assert_equal 'foobar012', p2.users[0].password
+
+    assert_raise(Fluent::ConfigError){ create_driver(<<CONFIG) }
+  type secure_forward
+  shared_key         secret_string
+  self_hostname      server.fqdn.local
+  cert_auto_generate     yes
+  allow_anonymous_source no  # Allow to accept from nodes of <client>
+  <client>
+    host 192.168.10.30
+    # network address (ex: 192.168.10.0/24) NOT Supported now
+  </client>
+  <client>
+    host localhost
+    network 192.168.1.1/32
+  </client>
+  <client>
+    network 192.168.16.0/24
+  </client>
+CONFIG
+    assert_raise(Fluent::ConfigError){ create_driver(<<CONFIG) }
+  type secure_forward
+  shared_key         secret_string
+  self_hostname      server.fqdn.local
+  cert_auto_generate     yes
+  allow_anonymous_source no  # Allow to accept from nodes of <client>
+  <client>
+    host 192.168.10.30
+    # network address (ex: 192.168.10.0/24) NOT Supported now
+  </client>
+  <client>
+  </client>
+  <client>
+    network 192.168.16.0/24
+  </client>
+CONFIG
 
     p3 = nil
     assert_nothing_raised { p3 = create_driver(<<CONFIG).instance }
