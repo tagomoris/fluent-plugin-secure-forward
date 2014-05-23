@@ -48,22 +48,24 @@ module Fluent
 
     attr_reader :read_interval, :socket_interval
 
-    attr_reader :users # list of (username, password) by <user> tag
-    # <user>
-    #   username ....
-    #   password ....
-    # </user>
-    attr_reader :nodes # list of hosts, allowed to connect <server> tag (it includes source ip, shared_key(optional))
-    # <client>
-    #   host ipaddr/hostname
-    #   shared_key .... # optional shared key
-    #   users username,list,of,allowed
-    # </client>
+    config_section :user, param_name: :users do
+      config_param :username, :string
+      config_param :password, :string
+    end
+
+    config_section :client, param_name: :clients do
+      config_param :host, :string, default: nil
+      config_param :network, :string, default: nil
+      config_param :shared_key, :string, default: nil
+      config_param :users, :string, default: nil # comma separated username list
+    end
+    attr_reader :nodes
 
     attr_reader :sessions # node/socket/thread list which has sslsocket instance keepaliving to client
 
     def initialize
       super
+      require 'ipaddr'
       require 'socket'
       require 'openssl'
       require 'digest'
@@ -84,30 +86,33 @@ module Fluent
       @read_interval = @read_interval_msec / 1000.0
       @socket_interval = @socket_interval_msec / 1000.0
 
-      @users = []
       @nodes = []
-      conf.elements.each do |element|
-        case element.name
-        when 'user'
-          unless element['username'] && element['password']
-            raise Fluent::ConfigError, "username/password pair missing in <user>"
-          end
-          @users.push({
-              username: element['username'],
-              password: element['password']
-            })
-        when 'client'
-          unless element['host']
-            raise Fluent::ConfigError, "host missing in <client>"
-          end
-          @nodes.push({
-              host: element['host'],
-              shared_key: (element['shared_key'] || @shared_key),
-              users: (element['users'] ? element['users'].split(',') : nil),
-            })
-        else
-          raise Fluent::ConfigError, "unknown config tag name"
+
+      @clients.each do |client|
+        if client.host && client.network
+          raise Fluent::ConfigError, "both of 'host' and 'network' are specified for client"
         end
+        if !client.host && !client.network
+          raise Fluent::ConfigError, "Either of 'host' and 'network' must be specified for client"
+        end
+        source = nil
+        if client.host
+          begin
+            source = IPSocket.getaddress(client.host)
+          rescue SocketError => e
+            raise Fluent::ConfigError, "host '#{client.host}' cannot be resolved"
+          end
+        end
+        source_addr = begin
+                        IPAddr.new(source || client.network)
+                      rescue ArgumentError => e
+                        raise Fluent::ConfigError, "network '#{client.network}' address format is invalid"
+                      end
+        @nodes.push({
+            address: source_addr,
+            shared_key: (client.shared_key || @shared_key),
+            users: (client.users ? client.users.split(',') : nil)
+          })
       end
 
       @generate_cert_common_name ||= @self_hostname
@@ -132,9 +137,9 @@ module Fluent
 
     def select_authenticate_users(node, username)
       if node.nil? || node[:users].nil?
-        @users.select{|u| u[:username] == username}
+        @users.select{|u| u.username == username}
       else
-        @users.select{|u| node[:users].include?(u[:username]) && u[:username] == username}
+        @users.select{|u| node[:users].include?(u.username) && u.username == username}
       end
     end
 

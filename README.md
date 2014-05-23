@@ -75,11 +75,13 @@ To deny unknown source IP/hosts:
       allow_anonymous_source no  # Allow to accept from nodes of <client>
       <client>
         host 192.168.10.30
-        # network address (ex: 192.168.10.0/24) NOT Supported now
       </client>
       <client>
         host your.host.fqdn.local
         # wildcard (ex: *.host.fqdn.local) NOT Supported now
+      </client>
+      <client>
+        network 192.168.16.0/24 # network address specification
       </client>
     </source>
 
@@ -103,7 +105,7 @@ You can use both of username/password check and client check:
       <user>
         username repeatedly
         password sushi
-      </user
+      </user>
       <client>
         host 192.168.10.30      # allow all users to connect from 192.168.10.30
       </client>

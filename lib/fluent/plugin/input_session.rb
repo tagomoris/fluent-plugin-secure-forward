@@ -34,12 +34,10 @@ class Fluent::SecureForwardInput::Session
     OpenSSL::Random.random_bytes(16)
   end
 
-  def check_node(hostname, ipaddress, port, proto)
+  def check_node(ipaddress)
     node = nil
-    family = Socket.const_get(proto)
     @receiver.nodes.each do |n|
-      proto, port, host, ipaddr, family_num, socktype_num, proto_num = Socket.getaddrinfo(n[:host], port, family).first
-      if ipaddr == ipaddress
+      if n[:address].include?(ipaddress)
         node = n
         break
       end
@@ -155,7 +153,7 @@ class Fluent::SecureForwardInput::Session
     end
 
     proto, port, host, ipaddr = @socket.io.peeraddr
-    @node = check_node(host, ipaddr, port, proto)
+    @node = check_node(ipaddr)
     if @node.nil? && (! @receiver.allow_anonymous_source)
       log.warn "Connection required from unknown host '#{host}' (#{ipaddr}), disconnecting..."
       self.shutdown
