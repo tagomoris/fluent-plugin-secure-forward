@@ -43,6 +43,10 @@ class Fluent::SecureForwardOutput::Node
     @thread = nil
   end
 
+  def log
+    @sender.log
+  end
+
   def dup
     renewed = self.class.new(
       @sender,
@@ -58,7 +62,7 @@ class Fluent::SecureForwardOutput::Node
   end
 
   def shutdown
-    $log.debug "shutting down node #{@host}"
+    log.debug "shutting down node #{@host}"
     @state = :closed
 
     if @thread == Thread.current
@@ -74,7 +78,7 @@ class Fluent::SecureForwardOutput::Node
       @socket.close if @socket
     end
   rescue => e
-    $log.debug "error on node shutdown #{e.class}:#{e.message}"
+    log.debug "error on node shutdown #{e.class}:#{e.message}"
   end
 
   def join
@@ -98,7 +102,7 @@ class Fluent::SecureForwardOutput::Node
   end
 
   def check_helo(message)
-    $log.debug "checking helo"
+    log.debug "checking helo"
     # ['HELO', options(hash)]
     unless message.size == 2 && message[0] == 'HELO'
       return false
@@ -110,7 +114,7 @@ class Fluent::SecureForwardOutput::Node
   end
 
   def generate_ping
-    $log.debug "generating ping"
+    log.debug "generating ping"
     # ['PING', self_hostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + self_hostname + shared_key),
     #  username || '', sha512\_hex(auth\_salt + username + password) || '']
     shared_key_hexdigest = Digest::SHA512.new.update(@shared_key_salt).update(@sender.self_hostname).update(@shared_key).hexdigest
@@ -125,7 +129,7 @@ class Fluent::SecureForwardOutput::Node
   end
 
   def check_pong(message)
-    $log.debug "checking pong"
+    log.debug "checking pong"
     # ['PONG', bool(authentication result), 'reason if authentication failed',
     #  self_hostname, sha512\_hex(salt + self_hostname + sharedkey)]
     unless message.size == 5 && message[0] == 'PONG'
@@ -150,17 +154,17 @@ class Fluent::SecureForwardOutput::Node
   end
 
   def on_read(data)
-    $log.debug "on_read"
+    log.debug "on_read"
     if self.established?
       #TODO: ACK
-      $log.warn "unknown packets arrived..."
+      log.warn "unknown packets arrived..."
       return
     end
 
     case @state
     when :helo
       unless check_helo(data)
-        $log.warn "received invalid helo message from #{@host}"
+        log.warn "received invalid helo message from #{@host}"
         self.shutdown
         return
       end
@@ -169,25 +173,25 @@ class Fluent::SecureForwardOutput::Node
     when :pingpong
       success, reason = check_pong(data)
       unless success
-        $log.warn "connection refused to #{@host}:" + reason
+        log.warn "connection refused to #{@host}:" + reason
         self.shutdown
         return
       end
-      $log.info "connection established to #{@host}" if @first_session
+      log.info "connection established to #{@host}" if @first_session
       @state = :established
       @expire = Time.now + @keepalive if @keepalive && @keepalive > 0
-      $log.debug "connection established", :host => @host, :port => @port, :expire => @expire
+      log.debug "connection established", :host => @host, :port => @port, :expire => @expire
     end
   end
 
   def connect
-    $log.debug "starting client"
+    log.debug "starting client"
 
     addr = @sender.hostname_resolver.getaddress(@host)
-    $log.debug "create tcp socket to node", :host => @host, :address => addr, :port => @port
+    log.debug "create tcp socket to node", :host => @host, :address => addr, :port => @port
     sock = TCPSocket.new(addr, @port)
 
-    $log.trace "changing socket options"
+    log.trace "changing socket options"
     opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
     sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_LINGER, opt)
 
@@ -195,36 +199,36 @@ class Fluent::SecureForwardOutput::Node
     sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
     # TODO: SSLContext constructer parameter (SSL/TLS protocol version)
-    $log.trace "initializing SSL contexts"
+    log.trace "initializing SSL contexts"
     context = OpenSSL::SSL::SSLContext.new
     # TODO: context.ca_file = (ca_file_path)
     # TODO: context.ciphers = (SSL Shared key chiper protocols)
 
-    $log.debug "trying to connect ssl session", :host => @host, :ipaddr => addr, :port => @port
+    log.debug "trying to connect ssl session", :host => @host, :ipaddr => addr, :port => @port
     sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
     # TODO: check connection failure
     sslsession.connect
-    $log.debug "ssl session connected", :host => @host, :port => @port
+    log.debug "ssl session connected", :host => @host, :port => @port
 
     begin
       unless @sender.allow_self_signed_certificate
-        $log.debug "checking peer's certificate", :subject => sslsession.peer_cert.subject
+        log.debug "checking peer's certificate", :subject => sslsession.peer_cert.subject
         sslsession.post_connection_check(@hostlabel)
         verify = sslsession.verify_result
         if verify != OpenSSL::X509::V_OK
           err_name = Fluent::SecureForwardOutput::OpenSSLUtil.verify_result_name(verify)
-          $log.warn "failed to verify certification while connecting host #{@host} as #{@hostlabel} (but not raised, why?)"
-          $log.warn "verify_result: #{err_name}"
+          log.warn "failed to verify certification while connecting host #{@host} as #{@hostlabel} (but not raised, why?)"
+          log.warn "verify_result: #{err_name}"
           raise RuntimeError, "failed to verify certification while connecting host #{@host} as #{@hostlabel}"
         end
       end
     rescue OpenSSL::SSL::SSLError => e
-      $log.warn "failed to verify certification while connecting ssl session", :host => @host, :hostlabel => @hostlabel
+      log.warn "failed to verify certification while connecting ssl session", :host => @host, :hostlabel => @hostlabel
       self.shutdown
       raise
     end
 
-    $log.debug "ssl sessison connected", :host => @host, :port => @port
+    log.debug "ssl sessison connected", :host => @host, :port => @port
     @socket = sock
     @sslsession = sslsession
 
@@ -249,7 +253,7 @@ class Fluent::SecureForwardOutput::Node
         # to wait i/o restart
         sleep socket_interval
       rescue EOFError
-        $log.warn "disconnected from #{@host}"
+        log.warn "disconnected from #{@host}"
         break
       end
     end
