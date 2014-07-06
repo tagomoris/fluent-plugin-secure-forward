@@ -20,7 +20,7 @@ module Fluent
 
     config_param :shared_key, :string
 
-    config_param :keepalive, :time, :default => nil # nil/0 means disable keepalive
+    config_param :keepalive, :time, :default => nil # nil/0 means disable keepalive expiration
 
     config_param :send_timeout, :time, :default => 60
     # config_param :hard_timeout, :time, :default => 60
