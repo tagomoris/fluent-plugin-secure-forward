@@ -34,6 +34,7 @@ module Fluent
     config_param :socket_interval_msec, :integer, :default => 200 # 200ms
 
     config_param :reconnect_interval, :time, :default => 5
+    config_param :established_timeout, :time, :default => 10
 
     attr_reader :read_interval, :socket_interval
 
@@ -129,6 +130,8 @@ module Fluent
     end
 
     def node_watcher
+      reconnectings = Array.new(@nodes.size)
+
       loop do
         sleep @reconnect_interval
 
@@ -139,17 +142,51 @@ module Fluent
 
           next if @nodes[i].established? && ! @nodes[i].expired?
 
+          next if reconnectings[i]
+
           log.info "dead connection found: #{@nodes[i].host}, reconnecting..." unless @nodes[i].established?
 
           node = @nodes[i]
           log.debug "reconnecting to node", :host => node.host, :port => node.port, :expire => node.expire, :expired => node.expired?
 
-          @nodes[i] = node.dup
-          @nodes[i].start
+          renewed = node.dup
           begin
-            node.shutdown
+            renewed.start
+            Thread.pass # to connection thread
+            reconnectings[i] = { :conn => renewed, :at => Time.now }
           rescue => e
-            log.warn "error in shutdown of dead connection", :error_class => e.class, :error => e
+            log.debug "Some error occured on start of renewed connection", :error_class => e2.class, :error => e2, :host => renewed.host, :port => renewed.port
+          end
+        end
+
+        (0...(reconnectings.size)).each do |i|
+          next unless reconnectings[i]
+
+          if reconnectings[i][:conn].established?
+            oldconn = @nodes[i]
+            @nodes[i] = reconnectings[i][:conn]
+            begin
+              oldconn.shutdown
+            rescue => e
+              log.debug "Some error occured on shutdown of expired connection", :error_class => e.class, :error => e, :host => renewed.host, :port => renewed.port
+            end
+
+            reconnectings[i] = nil
+            next
+          end
+
+          # not connected yet
+
+          next if reconnectings[i][:at] < Time.now + @established_timeout
+
+          # not connected yet, and timeout
+          begin
+            timeout_conn = reconnectings[i][:conn]
+            log.debug "SSL connection is not established until timemout", :host => timeout_conn.host, :port => timeout_conn.port, :timeout => @established_timeout
+            reconnectings[i] = nil
+            timeout_conn.shutdown
+          rescue => e
+            log.debug "Some error occured on shutdown of timeout re-connection", :error_class => e.class, :error => e
           end
         end
       end
