@@ -159,21 +159,26 @@ If server requires username/password, set `username` and `password` in `<server>
       self_hostname client.fqdn.local
       <server>
         host first.fqdn.local
+        hostlabel server.fqdn.local
         username repeatedly
         password sushi
       </server>
       <server>
         host second.fqdn.local
+        hostlabel server.fqdn.local
         username sasatatsu
         password karaage
       </server>
       <server>
         host standby.fqdn.local
+        hostlabel server.fqdn.local
         username kzk
         password hawaii
         standby  yes
       </server>
     </match>
+
+Specify `hostlabel` if server (`in_forward`) have different hostname (`self_host` configuration of `in_forward`) from DNS name (`first.fqdn.local`, `second.fqdn.local` or `standby.fqdn.local`). This configuration variable will be used to check common name (CN) of certifications.
 
 To specify keepalive timeouts, use `keepalive` configuration with seconds. SSL connection will be disconnected and re-connected for each 1 hour with configuration below. In Default (and with `keepalive 0`), connections will not be disconnected without any communication troubles. (This feature is for dns name updates, and SSL common key refreshing.)
 
