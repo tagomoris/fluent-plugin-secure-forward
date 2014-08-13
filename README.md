@@ -40,85 +40,93 @@ Default settings:
   
 Minimal configurations like below:
 
-    <source>
-      type secure_forward
-      shared_key         secret_string
-      self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
-      cert_auto_generate yes                # This parameter MUST be specified
-    </source>
+```apache
+<source>
+  type secure_forward
+  shared_key         secret_string
+  self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
+  cert_auto_generate yes                # This parameter MUST be specified
+</source>
+```
 
 To check username/password from clients, like this:
 
-    <source>
-      type secure_forward
-      shared_key         secret_string
-      self_hostname      server.fqdn.local
-      cert_auto_generate yes
-      authentication     yes # Deny clients without valid username/password
-      <user>
-        username tagomoris
-        password foobar012
-      </user>
-      <user>
-        username frsyuki
-        password yakiniku
-      </user>
-    </source>
+```apache
+<source>
+  type secure_forward
+  shared_key         secret_string
+  self_hostname      server.fqdn.local
+  cert_auto_generate yes
+  authentication     yes # Deny clients without valid username/password
+  <user>
+    username tagomoris
+    password foobar012
+  </user>
+  <user>
+    username frsyuki
+    password yakiniku
+  </user>
+</source>
+```
 
 To deny unknown source IP/hosts:
 
-    <source>
-      type secure_forward
-      shared_key         secret_string
-      self_hostname      server.fqdn.local
-      cert_auto_generate     yes
-      allow_anonymous_source no  # Allow to accept from nodes of <client>
-      <client>
-        host 192.168.10.30
-      </client>
-      <client>
-        host your.host.fqdn.local
-        # wildcard (ex: *.host.fqdn.local) NOT Supported now
-      </client>
-      <client>
-        network 192.168.16.0/24 # network address specification
-      </client>
-    </source>
+```apache
+<source>
+  type secure_forward
+  shared_key         secret_string
+  self_hostname      server.fqdn.local
+  cert_auto_generate     yes
+  allow_anonymous_source no  # Allow to accept from nodes of <client>
+  <client>
+    host 192.168.10.30
+  </client>
+  <client>
+    host your.host.fqdn.local
+    # wildcard (ex: *.host.fqdn.local) NOT Supported now
+  </client>
+  <client>
+    network 192.168.16.0/24 # network address specification
+  </client>
+</source>
+```
 
 You can use both of username/password check and client check:
 
-    <source>
-      type secure_forward
-      shared_key         secret_string
-      self_hostname      server.fqdn.local
-      cert_auto_generate     yes
-      allow_anonymous_source no  # Allow to accept from nodes of <client>
-      authentication         yes # Deny clients without valid username/password
-      <user>
-        username tagomoris
-        password foobar012
-      </user>
-      <user>
-        username frsyuki
-        password sukiyaki
-      </user>
-      <user>
-        username repeatedly
-        password sushi
-      </user>
-      <client>
-        host 192.168.10.30      # allow all users to connect from 192.168.10.30
-      </client>
-      <client>
-        host  192.168.10.31
-        users tagomoris,frsyuki # deny repeatedly from 192.168.10.31
-      </client>
-      <client>
-        host 192.168.10.32
-        shared_key less_secret_string # limited shared_key for 192.168.10.32
-        users      repeatedly         # and repatedly only
-      </client>
-    </source>
+```apache
+<source>
+  type secure_forward
+  shared_key         secret_string
+  self_hostname      server.fqdn.local
+  cert_auto_generate     yes
+  allow_anonymous_source no  # Allow to accept from nodes of <client>
+  authentication         yes # Deny clients without valid username/password
+  <user>
+    username tagomoris
+    password foobar012
+  </user>
+  <user>
+    username frsyuki
+    password sukiyaki
+  </user>
+  <user>
+    username repeatedly
+    password sushi
+  </user>
+  <client>
+    host 192.168.10.30      # allow all users to connect from 192.168.10.30
+  </client>
+  <client>
+    host  192.168.10.31
+    users tagomoris,frsyuki # deny repeatedly from 192.168.10.31
+  </client>
+  <client>
+    host 192.168.10.32
+    shared_key less_secret_string # limited shared_key for 192.168.10.32
+    users      repeatedly         # and repatedly only
+  </client>
+</source>
+```
 
 ### SecureForwardOutput
 
@@ -127,71 +135,79 @@ Default settings:
 
 Minimal configurations like this:
 
-    <match secret.data.**>
-      type secure_forward
-      shared_key secret_string
-      self_hostname client.fqdn.local
-      <server>
-        host server.fqdn.local  # or IP
-        # port 24284
-      </server>
-    </match>
+```apache
+<match secret.data.**>
+  type secure_forward
+  shared_key secret_string
+  self_hostname client.fqdn.local
+  <server>
+    host server.fqdn.local  # or IP
+    # port 24284
+  </server>
+</match>
+```
 
 Without hostname ACL (and it's not implemented yet), `self_hostname` is not checked in any state. `${hostname}` placeholder is available for such cases.
 
-    <match secret.data.**>
-      type secure_forward
-      shared_key secret_string
-      self_hostname ${hostname}
-      <server>
-        host server.fqdn.local  # or IP
-        # port 24284
-      </server>
-    </match>
+```apache
+<match secret.data.**>
+  type secure_forward
+  shared_key secret_string
+  self_hostname ${hostname}
+  <server>
+    host server.fqdn.local  # or IP
+    # port 24284
+  </server>
+</match>
+```
 
 When specified 2 or more `<server>`, this plugin uses these nodes in simple round-robin order. And servers with `standby yes` will be selected until all of non-standby servers goes down.
 
 If server requires username/password, set `username` and `password` in `<server>` section:
 
-    <match secret.data.**>
-      type secure_forward
-      shared_key secret_string
-      self_hostname client.fqdn.local
-      <server>
-        host first.fqdn.local
-        hostlabel server.fqdn.local
-        username repeatedly
-        password sushi
-      </server>
-      <server>
-        host second.fqdn.local
-        hostlabel server.fqdn.local
-        username sasatatsu
-        password karaage
-      </server>
-      <server>
-        host standby.fqdn.local
-        hostlabel server.fqdn.local
-        username kzk
-        password hawaii
-        standby  yes
-      </server>
-    </match>
+```apache
+<match secret.data.**>
+  type secure_forward
+  shared_key secret_string
+  self_hostname client.fqdn.local
+  <server>
+    host      first.fqdn.local
+    hostlabel server.fqdn.local
+    username  repeatedly
+    password  sushi
+  </server>
+  <server>
+    host      second.fqdn.local
+    hostlabel server.fqdn.local
+    username  sasatatsu
+    password  karaage
+  </server>
+  <server>
+    host      standby.fqdn.local
+    hostlabel server.fqdn.local
+    username  kzk
+    password  hawaii
+    standby   yes
+  </server>
+</match>
+```
 
 Specify `hostlabel` if server (`in_forward`) have different hostname (`self_host` configuration of `in_forward`) from DNS name (`first.fqdn.local`, `second.fqdn.local` or `standby.fqdn.local`). This configuration variable will be used to check common name (CN) of certifications.
 
 To specify keepalive timeouts, use `keepalive` configuration with seconds. SSL connection will be disconnected and re-connected for each 1 hour with configuration below. In Default (and with `keepalive 0`), connections will not be disconnected without any communication troubles. (This feature is for dns name updates, and SSL common key refreshing.)
 
-    <match secret.data.**>
-      type secure_forward
-      shared_key secret_string
-      self_hostname client.fqdn.local
-      keepalive 3600
-      <server>
-        host server.fqdn.local  # or IP
-        # port 24284
-      </server>
-    </match>
+```apache
+<match secret.data.**>
+  type secure_forward
+  shared_key secret_string
+  self_hostname client.fqdn.local
+  keepalive 3600
+  <server>
+    host server.fqdn.local  # or IP
+    # port 24284
+  </server>
+</match>
+```
 
 ## Senario (developer document)
 
