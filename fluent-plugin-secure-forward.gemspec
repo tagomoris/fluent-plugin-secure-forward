@@ -15,7 +15,7 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
 
   gem.add_runtime_dependency "fluentd", ">= 0.10.46"
-  gem.add_runtime_dependency "fluent-mixin-config-placeholders"
+  gem.add_runtime_dependency "fluent-mixin-config-placeholders", ">= 0.3.0"
   gem.add_runtime_dependency "resolve-hostname"
   gem.add_development_dependency "rake"
 end
