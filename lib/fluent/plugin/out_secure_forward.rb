@@ -86,6 +86,8 @@ module Fluent
           node.first_session = true
           node.keepalive = @keepalive
           @nodes.push node
+        when 'secondary'
+          # ignore
         else
           raise Fluent::ConfigError, "unknown config tag name #{element.name}"
         end
