@@ -154,26 +154,24 @@ module Fluent
           log.debug "reconnecting to node", :host => node.host, :port => node.port, :expire => node.expire, :expired => node.expired?
 
           renewed = node.dup
-          begin
-            renewed.start
-            Thread.pass # to connection thread
-            reconnectings[i] = { :conn => renewed, :at => Time.now }
-          rescue => e
-            log.debug "Some error occured on start of renewed connection", :error_class => e2.class, :error => e2, :host => renewed.host, :port => renewed.port
-          end
+          renewed.start
+
+          Thread.pass # to connection thread
+          reconnectings[i] = { :conn => renewed, :at => Time.now }
         end
 
         (0...nodes_size).each do |i|
           next unless reconnectings[i]
 
+          log.trace "checking reconnecting node #{reconnectings[i][:conn].host}"
+
           if reconnectings[i][:conn].established?
+            log.debug "connection established for reconnecting node"
             oldconn = @nodes[i]
             @nodes[i] = reconnectings[i][:conn]
-            begin
-              oldconn.shutdown
-            rescue => e
-              log.debug "Some error occured on shutdown of expired connection", :error_class => e.class, :error => e, :host => renewed.host, :port => renewed.port
-            end
+            log.trace "old connection shutting down"
+            oldconn.shutdown if oldconn # connection object doesn't raise any exceptions
+            log.trace "old connection shutted down"
 
             reconnectings[i] = nil
             next
@@ -184,14 +182,10 @@ module Fluent
           next if reconnectings[i][:at] < Time.now + @established_timeout
 
           # not connected yet, and timeout
-          begin
-            timeout_conn = reconnectings[i][:conn]
-            log.debug "SSL connection is not established until timemout", :host => timeout_conn.host, :port => timeout_conn.port, :timeout => @established_timeout
-            reconnectings[i] = nil
-            timeout_conn.shutdown
-          rescue => e
-            log.debug "Some error occured on shutdown of timeout re-connection", :error_class => e.class, :error => e
-          end
+          timeout_conn = reconnectings[i][:conn]
+          log.debug "SSL connection is not established until timemout", :host => timeout_conn.host, :port => timeout_conn.port, :timeout => @established_timeout
+          reconnectings[i] = nil
+          timeout_conn.shutdown if timeout_conn # connection object doesn't raise any exceptions
         end
       end
     end
