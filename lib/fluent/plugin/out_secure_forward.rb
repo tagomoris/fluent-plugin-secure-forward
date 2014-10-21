@@ -134,13 +134,14 @@ module Fluent
 
     def node_watcher
       reconnectings = Array.new(@nodes.size)
+      nodes_size = @nodes.size
 
       loop do
         sleep @reconnect_interval
 
         log.trace "in node health watcher"
 
-        (0...(@nodes.size)).each do |i|
+        (0...nodes_size).each do |i|
           log.trace "node health watcher for #{@nodes[i].host}"
 
           next if @nodes[i].established? && ! @nodes[i].expired?
@@ -162,7 +163,7 @@ module Fluent
           end
         end
 
-        (0...(reconnectings.size)).each do |i|
+        (0...nodes_size).each do |i|
           next unless reconnectings[i]
 
           if reconnectings[i][:conn].established?
