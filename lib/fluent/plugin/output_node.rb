@@ -59,6 +59,8 @@ class Fluent::SecureForwardOutput::Node
 
   def start
     @thread = Thread.new(&method(:connect))
+    ## If you want to check code bug, turn this line enable
+    # @thread.abort_on_exception = true
   end
 
   def shutdown
@@ -189,7 +191,13 @@ class Fluent::SecureForwardOutput::Node
 
     addr = @sender.hostname_resolver.getaddress(@host)
     log.debug "create tcp socket to node", :host => @host, :address => addr, :port => @port
-    sock = TCPSocket.new(addr, @port)
+    begin
+      sock = TCPSocket.new(addr, @port)
+    rescue => e
+      log.warn "failed to connect for secure-forward", :error_class => e.class, :error => e, :host => @host, :address => addr, :port => @port
+      @state = :failed
+      return
+    end
 
     log.trace "changing socket options"
     opt = [1, @sender.send_timeout.to_i].pack('I!I!')  # { int l_onoff; int l_linger; }
@@ -204,10 +212,18 @@ class Fluent::SecureForwardOutput::Node
     # TODO: context.ca_file = (ca_file_path)
     # TODO: context.ciphers = (SSL Shared key chiper protocols)
 
-    log.debug "trying to connect ssl session", :host => @host, :ipaddr => addr, :port => @port
-    sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
-    # TODO: check connection failure
-    sslsession.connect
+    log.debug "trying to connect ssl session", :host => @host, :address => addr, :port => @port
+    begin
+      sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
+    rescue => e
+      log.warn "failed to establish SSL connection", :host => @host, :address => addr, :port => @port
+    end
+
+    unless sslsession.connect
+      log.debug "failed to connect", :host => @host, :address => addr, :port => @port
+      @state = :failed
+      return
+    end
     log.debug "ssl session connected", :host => @host, :port => @port
 
     begin
