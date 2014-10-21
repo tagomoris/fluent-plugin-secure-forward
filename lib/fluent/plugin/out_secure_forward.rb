@@ -129,6 +129,7 @@ module Fluent
         node.start
       end
       @nodewatcher = Thread.new(&method(:node_watcher))
+      @nodewatcher.abort_on_exception = true
     end
 
     def node_watcher
