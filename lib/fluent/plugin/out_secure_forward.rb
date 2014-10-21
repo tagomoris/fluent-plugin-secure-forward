@@ -179,7 +179,7 @@ module Fluent
 
           # not connected yet
 
-          next if reconnectings[i][:at] < Time.now + @established_timeout
+          next if reconnectings[i][:at] + @established_timeout > Time.now
 
           # not connected yet, and timeout
           timeout_conn = reconnectings[i][:conn]
