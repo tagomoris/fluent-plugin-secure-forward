@@ -148,7 +148,12 @@ module Fluent
 
           next if reconnectings[i]
 
-          log.info "dead connection found: #{@nodes[i].host}, reconnecting..." unless @nodes[i].established?
+          reason = :expired
+
+          unless @nodes[i].established?
+            log.warn "dead connection found: #{@nodes[i].host}, reconnecting..."
+            reason = :dead
+          end
 
           node = @nodes[i]
           log.debug "reconnecting to node", :host => node.host, :port => node.port, :expire => node.expire, :expired => node.expired?
@@ -157,7 +162,7 @@ module Fluent
           renewed.start
 
           Thread.pass # to connection thread
-          reconnectings[i] = { :conn => renewed, :at => Time.now }
+          reconnectings[i] = { :conn => renewed, :at => Time.now, :reason => reason }
         end
 
         (0...nodes_size).each do |i|
@@ -167,8 +172,14 @@ module Fluent
 
           if reconnectings[i][:conn].established?
             log.debug "connection established for reconnecting node"
+
             oldconn = @nodes[i]
             @nodes[i] = reconnectings[i][:conn]
+
+            if reconnectings[i][:reason] == :dead
+              log.warn "recovered connection to dead node: #{nodes[i].host}"
+            end
+
             log.trace "old connection shutting down"
             oldconn.shutdown if oldconn # connection object doesn't raise any exceptions
             log.trace "old connection shutted down"
