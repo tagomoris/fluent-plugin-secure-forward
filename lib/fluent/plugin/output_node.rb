@@ -16,16 +16,18 @@ class Fluent::SecureForwardOutput::Node
 
   attr_reader :expire
 
-  def initialize(sender, shared_key, conf)
+  def initialize(sender, conf)
     @sender = sender
-    @shared_key = shared_key
+    @shared_key = conf.shared_key || sender.shared_key
 
-    @host = conf['host']
-    @port = (conf['port'] || Fluent::SecureForwardOutput::DEFAULT_SECURE_CONNECT_PORT).to_i
-    @hostlabel = conf['hostlabel'] || conf['host']
-    @username = conf['username'] || ''
-    @password = conf['password'] || ''
-    @standby = conf.has_key?('standby') && Fluent::Config.bool_value(conf['standby']) != false
+    @host = conf.host
+    @port = conf.port
+    @hostlabel = conf.hostlabel || conf.host
+    @username = conf.username
+    @password = conf.password
+    @standby = conf.standby
+
+    @keepalive = sender.keepalive
 
     @authentication = nil
 

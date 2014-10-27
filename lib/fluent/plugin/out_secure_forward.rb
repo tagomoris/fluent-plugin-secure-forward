@@ -38,15 +38,16 @@ module Fluent
 
     attr_reader :read_interval, :socket_interval
 
+    config_section :server, param_name: :servers do
+      config_param :host, :string
+      config_param :hostlabel, :string, default: nil
+      config_param :port, :integer, default: DEFAULT_SECURE_CONNECT_PORT
+      config_param :shared_key, :string, default: nil
+      config_param :username, :string, default: ''
+      config_param :password, :string, default: ''
+      config_param :standby, :bool, default: false
+    end
     attr_reader :nodes
-    # <server>
-    #   host ipaddr/hostname
-    #   hostlabel labelname # certification common name
-    #   port 24284
-    #   shared_key .... # optional shared key
-    #   username name # if required
-    #   password pass # if required
-    # </server>
 
     attr_reader :hostname_resolver
 
@@ -73,25 +74,17 @@ module Fluent
       @read_interval = @read_interval_msec / 1000.0
       @socket_interval = @socket_interval_msec / 1000.0
 
-      # read <server> tags and set to nodes
       @nodes = []
-      conf.elements.each do |element|
-        case element.name
-        when 'server'
-          unless element['host']
-            raise Fluent::ConfigError, "host missing in <server>"
-          end
-          node_shared_key = element['shared_key'] || @shared_key
-          node = Node.new(self, node_shared_key, element)
-          node.first_session = true
-          node.keepalive = @keepalive
-          @nodes.push node
-        when 'secondary'
-          # ignore
-        else
-          raise Fluent::ConfigError, "unknown config tag name #{element.name}"
-        end
+      @servers.each do |server|
+        node = Node.new(self, server)
+        node.first_session = true
+        @nodes.push node
       end
+
+      if conf['num_threads'] && conf[num_threads].to_i > @nodes.map{|n| not n.standby}.size
+        log.warn "Too many num_threads for secure-forward: threads should be smaller or equal to non standby servers"
+      end
+
       @next_node = 0
       @mutex = Mutex.new
 
