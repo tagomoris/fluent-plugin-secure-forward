@@ -103,7 +103,10 @@ module Fluent
           @next_node += 1
           @next_node = 0 if @next_node >= nodes
 
-          return n if n && n.established? && (!n.standby || permit_standby)
+          if n && n.established? && (! n.tained?) && (! n.detached?) && (!n.standby || permit_standby)
+            n.tain!
+            return n
+          end
 
           tries += 1
         end
@@ -174,7 +177,7 @@ module Fluent
             end
 
             log.trace "old connection shutting down"
-            oldconn.shutdown if oldconn # connection object doesn't raise any exceptions
+            oldconn.detach! if oldconn # connection object doesn't raise any exceptions
             log.trace "old connection shutted down"
 
             reconnectings[i] = nil
@@ -189,7 +192,7 @@ module Fluent
           timeout_conn = reconnectings[i][:conn]
           log.debug "SSL connection is not established until timemout", :host => timeout_conn.host, :port => timeout_conn.port, :timeout => @established_timeout
           reconnectings[i] = nil
-          timeout_conn.shutdown if timeout_conn # connection object doesn't raise any exceptions
+          timeout_conn.detach! if timeout_conn # connection object doesn't raise any exceptions
         end
       end
     end
@@ -201,7 +204,7 @@ module Fluent
       @nodewatcher.join
 
       @nodes.each do |node|
-        node.detach = true
+        node.detach!
         node.join
       end
     end
@@ -215,13 +218,11 @@ module Fluent
 
       begin
         send_data(node, tag, es)
+        node.release!
       rescue Errno::EPIPE, IOError, OpenSSL::SSL::SSLError => e
         log.warn "Failed to send messages to #{node.host}, parging.", :error_class => e.class, :error => e
-        begin
-          node.shutdown
-        rescue => e2
-          # ignore all errors
-        end
+        node.release!
+        node.detach!
 
         raise # to retry #write_objects
       end

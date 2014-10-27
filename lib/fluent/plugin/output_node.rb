@@ -31,7 +31,8 @@ class Fluent::SecureForwardOutput::Node
 
     @authentication = nil
 
-    @keepalive = nil
+    @writing = false
+
     @expire = nil
     @first_session = false
     @detach = false
@@ -63,6 +64,27 @@ class Fluent::SecureForwardOutput::Node
     @thread = Thread.new(&method(:connect))
     ## If you want to check code bug, turn this line enable
     # @thread.abort_on_exception = true
+  end
+
+  def detach!
+    @detach = true
+  end
+
+  def detached?
+    @detach
+  end
+
+  def tain!
+    raise RuntimeError, "BUG: taining detached node" if @detach
+    @writing = true
+  end
+
+  def tained?
+    @writing
+  end
+
+  def release!
+    @writing = false
   end
 
   def shutdown
@@ -274,6 +296,9 @@ class Fluent::SecureForwardOutput::Node
         log.warn "disconnected from #{@host}"
         break
       end
+    end
+    while @writing
+      sleep read_interval
     end
     self.shutdown
   end
