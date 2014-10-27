@@ -81,7 +81,7 @@ module Fluent
         @nodes.push node
       end
 
-      if conf['num_threads'] && conf[num_threads].to_i > @nodes.map{|n| not n.standby}.size
+      if @num_threads > @nodes.select{|n| not n.standby}.size
         log.warn "Too many num_threads for secure-forward: threads should be smaller or equal to non standby servers"
       end
 

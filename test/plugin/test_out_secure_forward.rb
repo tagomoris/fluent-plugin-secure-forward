@@ -73,4 +73,26 @@ CONFIG
     assert_equal 'secret_string_more', p1.nodes[2].shared_key
     assert_equal 60, p1.nodes[2].keepalive
   end
+
+  def test_configure_standby_server
+    p1 = nil
+    assert_nothing_raised { p1 = create_driver(<<CONFIG).instance }
+  type secure_forward
+  shared_key secret_string
+  self_hostname client.fqdn.local
+  num_threads 3
+  <server>
+    host server1.fqdn.local
+  </server>
+  <server>
+    host server2.fqdn.local
+  </server>
+  <server>
+    host server3.fqdn.local
+    standby
+  </server>
+CONFIG
+    assert_equal 3, p1.num_threads
+    assert_equal 1, p1.log.logs.select{|line| line =~ /\[warn\]: Too many num_threads for secure-forward:/}.size
+  end
 end
