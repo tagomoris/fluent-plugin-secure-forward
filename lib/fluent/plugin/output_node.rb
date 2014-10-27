@@ -53,10 +53,8 @@ class Fluent::SecureForwardOutput::Node
   def dup
     renewed = self.class.new(
       @sender,
-      @shared_key,
-      {'host' => @host, 'port' => @port, 'hostlabel' => @hostlabel, 'username' => @username, 'password' => @password}
+      Fluent::Config::Section.new({host: @host, port: @port, hostlabel: @hostlabel, username: @username, password: @password, shared_key: @shared_key, standby: @standby})
     )
-    renewed.keepalive = @keepalive if @keepalive
     renewed
   end
 
