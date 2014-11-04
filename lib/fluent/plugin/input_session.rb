@@ -26,6 +26,10 @@ class Fluent::SecureForwardInput::Session
     @receiver.log
   end
 
+  def closed?
+    @state == :closed
+  end
+
   def established?
     @state == :established
   end

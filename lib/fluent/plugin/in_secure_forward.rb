@@ -192,6 +192,10 @@ module Fluent
           while socket = @sock.accept
             log.trace "accept tcp connection (ssl session not established yet)"
             @sessions.push Session.new(self, socket)
+
+            # cleanup closed session instance
+            @sessions.delete_if(&:closed?)
+            log.trace "session instances:", :all => @sessions.size, :closed => @sessions.select(&:closed?).size
           end
         end
       rescue OpenSSL::SSL::SSLError => e
