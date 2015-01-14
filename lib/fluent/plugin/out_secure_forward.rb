@@ -57,6 +57,7 @@ module Fluent
       require 'openssl'
       require 'digest'
       require 'resolve/hostname'
+      require 'securerandom'
     end
 
     # Define `log` method for v0.10.42 or earlier
@@ -118,7 +119,7 @@ module Fluent
       super
 
       log.debug "starting secure-forward"
-      OpenSSL::Random.seed(File.read("/dev/urandom", 16))
+      OpenSSL::Random.seed(SecureRandom.random_bytes(16))
       log.debug "start to connect target nodes"
       @nodes.each do |node|
         log.debug "connecting node", :host => node.host, :port => node.port
