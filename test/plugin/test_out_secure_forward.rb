@@ -4,6 +4,10 @@ class SecureForwardOutputTest < Test::Unit::TestCase
   CONFIG = %[
 ]
 
+  def setup
+    Fluent::Test.setup
+  end
+
   def create_driver(conf=CONFIG,tag='test')
     Fluent::Test::OutputTestDriver.new(Fluent::SecureForwardOutput, tag).configure(conf)
   end
@@ -74,7 +78,7 @@ CONFIG
     assert_equal 60, p1.nodes[2].keepalive
   end
 
-  def test_configure_standby_server
+  def test_configure_standby_server2
     p1 = nil
     assert_nothing_raised { p1 = create_driver(<<CONFIG).instance }
   type secure_forward

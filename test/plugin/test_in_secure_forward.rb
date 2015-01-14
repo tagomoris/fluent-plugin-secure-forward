@@ -5,6 +5,10 @@ class SecureForwardInputTest < Test::Unit::TestCase
 
 ]
 
+  def setup
+    Fluent::Test.setup
+  end
+
   def create_driver(conf=CONFIG,tag='test')
     Fluent::Test::InputTestDriver.new(Fluent::SecureForwardInput).configure(conf)
   end
