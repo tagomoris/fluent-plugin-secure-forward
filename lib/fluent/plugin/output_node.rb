@@ -296,6 +296,8 @@ class Fluent::SecureForwardOutput::Node
       end
     end
     while @writing
+      break if @detach
+
       sleep read_interval
     end
     self.shutdown

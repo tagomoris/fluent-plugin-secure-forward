@@ -141,7 +141,7 @@ module Fluent
         (0...nodes_size).each do |i|
           log.trace "node health watcher for #{@nodes[i].host}"
 
-          next if @nodes[i].established? && ! @nodes[i].expired?
+          next if @nodes[i].established? && ! @nodes[i].expired? && ! @nodes[i].detached?
 
           next if reconnectings[i]
 
@@ -153,7 +153,7 @@ module Fluent
           end
 
           node = @nodes[i]
-          log.debug "reconnecting to node", :host => node.host, :port => node.port, :expire => node.expire, :expired => node.expired?
+          log.debug "reconnecting to node", :host => node.host, :port => node.port, :expire => node.expire, :expired => node.expired?, :detached => node.detached?
 
           renewed = node.dup
           renewed.start
