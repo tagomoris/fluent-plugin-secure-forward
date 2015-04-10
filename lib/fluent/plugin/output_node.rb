@@ -293,6 +293,8 @@ class Fluent::SecureForwardOutput::Node
       rescue EOFError
         log.warn "disconnected from #{@host}"
         break
+      rescue => e
+        log.error "unexpected error", error_class: e.class, error: e.message, host: @host, port: @port
       end
     end
     while @writing
@@ -300,6 +302,9 @@ class Fluent::SecureForwardOutput::Node
 
       sleep read_interval
     end
+    log.debug "disconnected from #{@host}, shutting down this session"
     self.shutdown
+  rescue => e
+    log.error "raised in session", error_class: e.class, error: e.message, host: @host, port: @port
   end
 end
