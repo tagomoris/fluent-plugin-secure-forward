@@ -266,7 +266,7 @@ class Fluent::SecureForwardOutput::Node
       raise
     end
 
-    log.debug "ssl sessison connected", :host => @host, :port => @port
+    log.debug "ssl session connected", :host => @host, :port => @port
     @socket = sock
     @sslsession = sslsession
 
