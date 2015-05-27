@@ -165,6 +165,10 @@ class Fluent::SecureForwardOutput::Node
       return false, 'authentication failed: ' + reason
     end
 
+    if hostname == @sender.self_hostname
+      return false, 'same hostname between input and output: invalid configuration'
+    end
+
     clientside = Digest::SHA512.new.update(@shared_key_salt).update(hostname).update(@shared_key).hexdigest
     unless shared_key_hexdigest == clientside
       return false, 'shared key mismatch'
