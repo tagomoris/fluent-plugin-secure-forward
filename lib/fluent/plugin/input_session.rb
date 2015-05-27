@@ -195,7 +195,7 @@ class Fluent::SecureForwardInput::Session
   rescue Errno::ECONNRESET => e
     # disconnected from client
   rescue => e
-    log.warn "unexpected error in in_secure_forward", :error_class => e.class, :error => e
+    log.warn "unexpected error in in_secure_forward", error_class: e.class, error: e
   ensure
     self.shutdown
   end

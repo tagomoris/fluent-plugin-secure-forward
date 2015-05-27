@@ -204,7 +204,7 @@ class Fluent::SecureForwardOutput::Node
       log.info "connection established to #{@host}" if @first_session
       @state = :established
       @expire = Time.now + @keepalive if @keepalive && @keepalive > 0
-      log.debug "connection established", :host => @host, :port => @port, :expire => @expire
+      log.debug "connection established", host: @host, port: @port, expire: @expire
     end
   end
 
@@ -212,11 +212,11 @@ class Fluent::SecureForwardOutput::Node
     log.debug "starting client"
 
     addr = @sender.hostname_resolver.getaddress(@host)
-    log.debug "create tcp socket to node", :host => @host, :address => addr, :port => @port
+    log.debug "create tcp socket to node", host: @host, address: addr, port: @port
     begin
       sock = TCPSocket.new(addr, @port)
     rescue => e
-      log.warn "failed to connect for secure-forward", :error_class => e.class, :error => e, :host => @host, :address => addr, :port => @port
+      log.warn "failed to connect for secure-forward", error_class: e.class, error: e, host: @host, address: addr, port: @port
       @state = :failed
       return
     end
@@ -234,23 +234,23 @@ class Fluent::SecureForwardOutput::Node
     # TODO: context.ca_file = (ca_file_path)
     # TODO: context.ciphers = (SSL Shared key chiper protocols)
 
-    log.debug "trying to connect ssl session", :host => @host, :address => addr, :port => @port
+    log.debug "trying to connect ssl session", host: @host, address: addr, port: @port
     begin
       sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
     rescue => e
-      log.warn "failed to establish SSL connection", :host => @host, :address => addr, :port => @port
+      log.warn "failed to establish SSL connection", host: @host, address: addr, port: @port
     end
 
     unless sslsession.connect
-      log.debug "failed to connect", :host => @host, :address => addr, :port => @port
+      log.debug "failed to connect", host: @host, address: addr, port: @port
       @state = :failed
       return
     end
-    log.debug "ssl session connected", :host => @host, :port => @port
+    log.debug "ssl session connected", host: @host, port: @port
 
     begin
       unless @sender.allow_self_signed_certificate
-        log.debug "checking peer's certificate", :subject => sslsession.peer_cert.subject
+        log.debug "checking peer's certificate", subject: sslsession.peer_cert.subject
         sslsession.post_connection_check(@hostlabel)
         verify = sslsession.verify_result
         if verify != OpenSSL::X509::V_OK
@@ -261,12 +261,12 @@ class Fluent::SecureForwardOutput::Node
         end
       end
     rescue OpenSSL::SSL::SSLError => e
-      log.warn "failed to verify certification while connecting ssl session", :host => @host, :hostlabel => @hostlabel
+      log.warn "failed to verify certification while connecting ssl session", host: @host, hostlabel: @hostlabel
       self.shutdown
       raise
     end
 
-    log.debug "ssl session connected", :host => @host, :port => @port
+    log.debug "ssl session connected", host: @host, port: @port
     @socket = sock
     @sslsession = sslsession
 

@@ -20,21 +20,21 @@ module Fluent
 
     config_param :shared_key, :string
 
-    config_param :keepalive, :time, :default => nil # nil/0 means disable keepalive expiration
+    config_param :keepalive, :time, default: nil # nil/0 means disable keepalive expiration
 
-    config_param :send_timeout, :time, :default => 60
+    config_param :send_timeout, :time, default: 60
     # config_param :hard_timeout, :time, :default => 60
     # config_param :expire_dns_cache, :time, :default => 0 # 0 means disable cache
 
-    config_param :allow_self_signed_certificate, :bool, :default => true
-    config_param :ca_file_path, :string, :default => nil
+    config_param :allow_self_signed_certificate, :bool, default: true
+    config_param :ca_file_path, :string, default: nil
 
-    config_param :read_length, :size, :default => 512 # 512bytes
-    config_param :read_interval_msec, :integer, :default => 50 # 50ms
-    config_param :socket_interval_msec, :integer, :default => 200 # 200ms
+    config_param :read_length, :size, default: 512 # 512bytes
+    config_param :read_interval_msec, :integer, default: 50 # 50ms
+    config_param :socket_interval_msec, :integer, default: 200 # 200ms
 
-    config_param :reconnect_interval, :time, :default => 5
-    config_param :established_timeout, :time, :default => 10
+    config_param :reconnect_interval, :time, default: 5
+    config_param :established_timeout, :time, default: 10
 
     attr_reader :read_interval, :socket_interval
 
@@ -89,7 +89,7 @@ module Fluent
       @next_node = 0
       @mutex = Mutex.new
 
-      @hostname_resolver = Resolve::Hostname.new(:system_resolver => true)
+      @hostname_resolver = Resolve::Hostname.new(system_resolver: true)
 
       true
     end
@@ -122,7 +122,7 @@ module Fluent
       OpenSSL::Random.seed(SecureRandom.random_bytes(16))
       log.debug "start to connect target nodes"
       @nodes.each do |node|
-        log.debug "connecting node", :host => node.host, :port => node.port
+        log.debug "connecting node", host: node.host, port: node.port
         node.start
       end
       @nodewatcher = Thread.new(&method(:node_watcher))
@@ -153,13 +153,13 @@ module Fluent
           end
 
           node = @nodes[i]
-          log.debug "reconnecting to node", :host => node.host, :port => node.port, :expire => node.expire, :expired => node.expired?, :detached => node.detached?
+          log.debug "reconnecting to node", host: node.host, port: node.port, expire: node.expire, expired: node.expired?, detached: node.detached?
 
           renewed = node.dup
           renewed.start
 
           Thread.pass # to connection thread
-          reconnectings[i] = { :conn => renewed, :at => Time.now, :reason => reason }
+          reconnectings[i] = { conn: renewed, at: Time.now, reason: reason }
         end
 
         (0...nodes_size).each do |i|
@@ -191,7 +191,7 @@ module Fluent
 
           # not connected yet, and timeout
           timeout_conn = reconnectings[i][:conn]
-          log.debug "SSL connection is not established until timemout", :host => timeout_conn.host, :port => timeout_conn.port, :timeout => @established_timeout
+          log.debug "SSL connection is not established until timemout", host: timeout_conn.host, port: timeout_conn.port, timeout: @established_timeout
           reconnectings[i] = nil
           timeout_conn.detach! if timeout_conn # connection object doesn't raise any exceptions
         end
@@ -215,13 +215,13 @@ module Fluent
       unless node
         raise "no one nodes with valid ssl session"
       end
-      log.trace "selected node", :host => node.host, :port => node.port, :standby => node.standby
+      log.trace "selected node", host: node.host, port: node.port, standby: node.standby
 
       begin
         send_data(node, tag, es)
         node.release!
       rescue Errno::EPIPE, IOError, OpenSSL::SSL::SSLError => e
-        log.warn "Failed to send messages to #{node.host}, parging.", :error_class => e.class, :error => e
+        log.warn "Failed to send messages to #{node.host}, parging.", error_class: e.class, error: e
         node.release!
         node.detach!
 

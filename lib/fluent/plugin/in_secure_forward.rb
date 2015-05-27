@@ -20,31 +20,28 @@ module Fluent
 
     config_param :shared_key, :string
 
-    config_param :bind, :string, :default => '0.0.0.0'
-    config_param :port, :integer, :default => DEFAULT_SECURE_LISTEN_PORT
-    config_param :allow_keepalive, :bool, :default => true #TODO: implement
+    config_param :bind, :string, default: '0.0.0.0'
+    config_param :port, :integer, default: DEFAULT_SECURE_LISTEN_PORT
+    config_param :allow_keepalive, :bool, default: true #TODO: implement
 
-    config_param :allow_anonymous_source, :bool, :default => true
-    config_param :authentication, :bool, :default => false
+    config_param :allow_anonymous_source, :bool, default: true
+    config_param :authentication, :bool, default: false
 
-    ## meaningless for security...? not implemented yet
-    # config_param :dns_reverse_lookup_check, :bool, :default => false
+    config_param :cert_auto_generate, :bool, default: false
+    config_param :generate_private_key_length, :integer, default: 2048
 
-    config_param :cert_auto_generate, :bool, :default => false
-    config_param :generate_private_key_length, :integer, :default => 2048
+    config_param :generate_cert_country, :string, default: 'US'
+    config_param :generate_cert_state, :string, default: 'CA'
+    config_param :generate_cert_locality, :string, default: 'Mountain View'
+    config_param :generate_cert_common_name, :string, default: nil
 
-    config_param :generate_cert_country, :string, :default => 'US'
-    config_param :generate_cert_state, :string, :default => 'CA'
-    config_param :generate_cert_locality, :string, :default => 'Mountain View'
-    config_param :generate_cert_common_name, :string, :default => nil
+    config_param :cert_file_path, :string, default: nil
+    config_param :private_key_file, :string, default: nil
+    config_param :private_key_passphrase, :string, default: nil
 
-    config_param :cert_file_path, :string, :default => nil
-    config_param :private_key_file, :string, :default => nil
-    config_param :private_key_passphrase, :string, :default => nil
-
-    config_param :read_length, :size, :default => 8*1024*1024 # 8MB
-    config_param :read_interval_msec, :integer, :default => 50 # 50ms
-    config_param :socket_interval_msec, :integer, :default => 200 # 200ms
+    config_param :read_length, :size, default: 8*1024*1024 # 8MB
+    config_param :read_interval_msec, :integer, default: 50 # 50ms
+    config_param :socket_interval_msec, :integer, default: 200 # 200ms
 
     attr_reader :read_interval, :socket_interval
 
@@ -182,9 +179,9 @@ module Fluent
       ctx.cert = cert
       ctx.key = key
 
-      log.trace "start to listen", :bind => @bind, :port => @port
+      log.trace "start to listen", bind: @bind, port: @port
       server = TCPServer.new(@bind, @port)
-      log.trace "starting SSL server", :bind => @bind, :port => @port
+      log.trace "starting SSL server", bind: @bind, port: @port
       @sock = OpenSSL::SSL::SSLServer.new(server, ctx)
       @sock.start_immediately = false
       begin
@@ -196,7 +193,7 @@ module Fluent
 
             # cleanup closed session instance
             @sessions.delete_if(&:closed?)
-            log.trace "session instances:", :all => @sessions.size, :closed => @sessions.select(&:closed?).size
+            log.trace "session instances:", all: @sessions.size, closed: @sessions.select(&:closed?).size
           end
         end
       rescue OpenSSL::SSL::SSLError => e
