@@ -151,7 +151,7 @@ class Fluent::SecureForwardInput::Session
     begin
       @socket.accept
     rescue OpenSSL::SSL::SSLError => e
-      log.debug "failed to establish ssl session"
+      log.debug "failed to establish ssl session", error_class: e.class, error: e
       self.shutdown
       return
     end

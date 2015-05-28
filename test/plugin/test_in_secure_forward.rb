@@ -17,19 +17,18 @@ class SecureForwardInputTest < Test::Unit::TestCase
     p1 = nil
     assert_nothing_raised { p1 = create_driver(<<CONFIG).instance }
   type secure_forward
+  secure false
   shared_key         secret_string
   self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
-  cert_auto_generate yes                # This parameter MUST be specified
 CONFIG
     assert_equal 'secret_string', p1.shared_key
     assert_equal 'server.fqdn.local', p1.self_hostname
-    assert p1.cert_auto_generate
 
     assert_raise(Fluent::ConfigError){ create_driver(<<CONFIG) }
   type secure_forward
+  secure no
   shared_key         secret_string
   self_hostname      server.fqdn.local
-  cert_auto_generate yes
   authentication     yes # Deny clients without valid username/password
   <user>
     username tagomoris
@@ -41,9 +40,9 @@ CONFIG
 CONFIG
     assert_raise(Fluent::ConfigError){ create_driver(<<CONFIG) }
   type secure_forward
+  secure no
   shared_key         secret_string
   self_hostname      server.fqdn.local
-  cert_auto_generate yes
   authentication     yes # Deny clients without valid username/password
   <user>
     username tagomoris
@@ -57,9 +56,9 @@ CONFIG
     p2 = nil
     assert_nothing_raised { p2 = create_driver(<<CONFIG).instance }
   type secure_forward
+  secure no
   shared_key         secret_string
   self_hostname      server.fqdn.local
-  cert_auto_generate yes
   authentication     yes # Deny clients without valid username/password
   <user>
     username tagomoris
@@ -76,9 +75,9 @@ CONFIG
 
     assert_raise(Fluent::ConfigError){ create_driver(<<CONFIG) }
   type secure_forward
+  secure no
   shared_key         secret_string
   self_hostname      server.fqdn.local
-  cert_auto_generate     yes
   allow_anonymous_source no  # Allow to accept from nodes of <client>
   <client>
     host 192.168.10.30
@@ -94,9 +93,9 @@ CONFIG
 CONFIG
     assert_raise(Fluent::ConfigError){ create_driver(<<CONFIG) }
   type secure_forward
+  secure no
   shared_key         secret_string
   self_hostname      server.fqdn.local
-  cert_auto_generate     yes
   allow_anonymous_source no  # Allow to accept from nodes of <client>
   <client>
     host 192.168.10.30
@@ -112,9 +111,9 @@ CONFIG
     p3 = nil
     assert_nothing_raised { p3 = create_driver(<<CONFIG).instance }
   type secure_forward
+  secure no
   shared_key         secret_string
   self_hostname      server.fqdn.local
-  cert_auto_generate     yes
   allow_anonymous_source no  # Allow to accept from nodes of <client>
   <client>
     host 192.168.10.30
@@ -137,6 +136,7 @@ CONFIG
 
     p4 = nil
     assert_nothing_raised { p4 = create_driver(<<CONFIG).instance }
+  secure no
   shared_key         secret_string
   self_hostname      server.fqdn.local
   cert_auto_generate     yes
@@ -168,5 +168,70 @@ CONFIG
   </client>
 CONFIG
     assert_equal ['tagomoris','frsyuki'], p4.nodes[1][:users]
+  end
+
+  def test_configure_secure
+    p = nil
+    assert_raise(Fluent::ConfigError) { p = create_driver(<<CONFIG).instance }
+  type secure_forward
+  shared_key         secret_string
+  self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
+CONFIG
+
+    assert_raise(Fluent::ConfigError) { p = create_driver(<<CONFIG).instance }
+  type secure_forward
+  secure true
+  shared_key         secret_string
+  self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
+CONFIG
+
+    assert_raise(Fluent::ConfigError) { p = create_driver(<<CONFIG).instance }
+  type secure_forward
+  secure true
+  shared_key         secret_string
+  self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
+  ca_cert_path       /anywhere/cert/file/does/not/exist
+CONFIG
+
+    passphrase = "testing secret phrase"
+    ca_dir = File.join(Dir.pwd, "test", "tmp", "cadir")
+    unless File.exist?(File.join(ca_dir, 'ca_cert.pem'))
+      FileUtils.mkdir_p(ca_dir)
+      opt = {
+        private_key_length: 2048,
+        cert_country:  'US',
+        cert_state:    'CA',
+        cert_locality: 'Mountain View',
+        cert_common_name: 'SecureForward CA',
+      }
+      cert, key = Fluent::SecureForward::CertUtil.generate_ca_pair(opt)
+      key_data = key.export(OpenSSL::Cipher::Cipher.new('aes256'), passphrase)
+      File.open(File.join(ca_dir, 'ca_key.pem'), 'w') do |file|
+        file.write key_data
+      end
+      File.open(File.join(ca_dir, 'ca_cert.pem'), 'w') do |file|
+        file.write cert.to_pem
+      end
+    end
+
+    assert_raise(OpenSSL::PKey::RSAError) { p = create_driver(<<CONFIG).instance }
+  type secure_forward
+  secure true
+  shared_key         secret_string
+  self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
+  ca_cert_path       #{ca_dir}/ca_cert.pem
+  ca_private_key_path #{ca_dir}/ca_key.pem
+  ca_private_key_passphrase wrong phrase
+CONFIG
+
+    assert_nothing_raised { p = create_driver(<<CONFIG).instance }
+  type secure_forward
+  secure true
+  shared_key         secret_string
+  self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
+  ca_cert_path       #{ca_dir}/ca_cert.pem
+  ca_private_key_path #{ca_dir}/ca_key.pem
+  ca_private_key_passphrase testing secret phrase
+CONFIG
   end
 end

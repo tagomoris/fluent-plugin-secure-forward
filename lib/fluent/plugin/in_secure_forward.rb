@@ -8,12 +8,15 @@ module Fluent
 end
 
 require_relative 'input_session'
+require_relative './secure_forward/cert_util'
 
 module Fluent
   class SecureForwardInput < Input
     DEFAULT_SECURE_LISTEN_PORT = 24284
 
     Fluent::Plugin.register_input('secure_forward', self)
+
+    config_param :secure, :bool # if secure, cert_path or ca_cert_path required
 
     config_param :self_hostname, :string
     include Fluent::Mixin::ConfigPlaceholders
@@ -27,17 +30,25 @@ module Fluent
     config_param :allow_anonymous_source, :bool, default: true
     config_param :authentication, :bool, default: false
 
-    config_param :cert_auto_generate, :bool, default: false
-    config_param :generate_private_key_length, :integer, default: 2048
+    config_param :ssl_version, :string, default: 'TLSv1_2'
+    config_param :ssl_ciphers, :string, default: nil
 
+    # Cert signed by public CA
+    config_param :cert_path, :string, default: nil
+    config_param :private_key_path, :string, default: nil
+    config_param :private_key_passphrase, :string, default: nil
+
+    # Cert automatically generated and signed by private CA
+    config_param :ca_cert_path, :string, default: nil
+    config_param :ca_private_key_path, :string, default: nil
+    config_param :ca_private_key_passphrase, :string, default: nil
+
+    # Cert automatically generated and signed by itself (for without any verification)
+    config_param :generate_private_key_length, :integer, default: 2048
     config_param :generate_cert_country, :string, default: 'US'
     config_param :generate_cert_state, :string, default: 'CA'
     config_param :generate_cert_locality, :string, default: 'Mountain View'
     config_param :generate_cert_common_name, :string, default: nil
-
-    config_param :cert_file_path, :string, default: nil
-    config_param :private_key_file, :string, default: nil
-    config_param :private_key_passphrase, :string, default: nil
 
     config_param :read_length, :size, default: 8*1024*1024 # 8MB
     config_param :read_interval_msec, :integer, default: 50 # 50ms
@@ -77,8 +88,19 @@ module Fluent
     def configure(conf)
       super
 
-      unless @cert_auto_generate || @cert_file_path
-        raise Fluent::ConfigError, "One of 'cert_auto_generate' or 'cert_file_path' must be specified"
+      if @secure
+        unless @cert_path || @ca_cert_path
+          raise Fluent::ConfigError, "cert_path or ca_cert_path required for secure communication"
+        end
+        if @cert_path
+          raise Fluent::ConfigError, "private_key_path required" unless @private_key_path
+          raise Fluent::ConfigError, "private_key_passphrase required" unless @private_key_passphrase
+        else # @ca_cert_path
+          raise Fluent::ConfigError, "ca_private_key_path required" unless @ca_private_key_path
+          raise Fluent::ConfigError, "ca_private_key_passphrase required" unless @ca_private_key_passphrase
+        end
+      else
+        log.warn "'insecure' mode has vulnerability for man-in-the-middle attacks for clients (output plugins)."
       end
 
       @read_interval = @read_interval_msec / 1000.0
@@ -114,7 +136,10 @@ module Fluent
       end
 
       @generate_cert_common_name ||= @self_hostname
+
+      # To check whether certificates are successfully generated/loaded at startup time
       self.certificate
+
       true
     end
 
@@ -124,6 +149,7 @@ module Fluent
       @sessions = []
       @sock = nil
       @listener = Thread.new(&method(:run))
+      @listener.abort_on_exception
     end
 
     def shutdown
@@ -144,38 +170,53 @@ module Fluent
     def certificate
       return @cert, @key if @cert && @key
 
-      if @cert_auto_generate
-        key = OpenSSL::PKey::RSA.generate(@generate_private_key_length)
-
-        digest = OpenSSL::Digest::SHA1.new
-        issuer = subject = OpenSSL::X509::Name.new
-        subject.add_entry('C', @generate_cert_country)
-        subject.add_entry('ST', @generate_cert_state)
-        subject.add_entry('L', @generate_cert_locality)
-        subject.add_entry('CN', @generate_cert_common_name)
-
-        cer = OpenSSL::X509::Certificate.new
-        cer.not_before = Time.at(0)
-        cer.not_after = Time.at(0)
-        cer.public_key = key
-        cer.serial = 1
-        cer.issuer = issuer
-        cer.subject  = subject
-        cer.sign(key, digest)
-
-        @cert = cer
-        @key = key
-        return @cert, @key
+      if @cert_path
+        @key = OpenSSL::PKey::RSA.new(File.read(@private_key_path), @private_key_passphrase)
+        @cert = OpenSSL::X509::Certificate.new(File.read(@cert_path))
+      elsif @ca_cert_path
+        opts = {
+          ca_cert_path: @ca_cert_path,
+          ca_key_path: @ca_private_key_path,
+          ca_key_passphrase: @ca_private_key_passphrase,
+          private_key_length: @generate_private_key_length,
+          country: @generate_cert_country,
+          state: @generate_cert_state,
+          locality: @generate_cert_locality,
+          common_name: @generate_cert_common_name,
+        }
+        @cert, @key = Fluent::SecureForward::CertUtil.generate_server_pair(opts)
+      else
+        opts = {
+          private_key_length: @generate_private_key_length,
+          country: @generate_cert_country,
+          state: @generate_cert_state,
+          locality: @generate_cert_locality,
+          common_name: @generate_cert_common_name,
+        }
+        @cert, @key = Fluent::SecureForward::CertUtil.generate_self_signed_server_pair(opts)
       end
-
-      @cert = OpenSSL::X509::Certificate.new(File.read(@cert_file_path))
-      @key = OpenSSL::PKey::RSA.new(File.read(@private_key_file), @private_key_passphrase)
+      return @cert, @key
     end
 
     def run # sslsocket server thread
       log.trace "setup for ssl sessions"
       cert, key = self.certificate
-      ctx = OpenSSL::SSL::SSLContext.new
+
+      ctx = OpenSSL::SSL::SSLContext.new(@ssl_version)
+      if @secure
+        # inject OpenSSL::SSL::SSLContext::DEFAULT_PARAMS
+        # https://bugs.ruby-lang.org/issues/9424
+        ctx.set_params({})
+
+        if @ssl_ciphers
+          ctx.ciphers = @ssl_ciphers
+        else
+          ### follow httpclient configuration by nahi
+          # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
+          ctx.ciphers = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
+        end
+      end
+
       ctx.cert = cert
       ctx.key = key
 

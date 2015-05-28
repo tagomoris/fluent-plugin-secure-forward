@@ -60,8 +60,6 @@ class Fluent::SecureForwardOutput::Node
 
   def start
     @thread = Thread.new(&method(:connect))
-    ## If you want to check code bug, turn this line enable
-    # @thread.abort_on_exception = true
   end
 
   def detach!
@@ -213,6 +211,7 @@ class Fluent::SecureForwardOutput::Node
   end
 
   def connect
+    Thread.current.abort_on_exception = true
     log.debug "starting client"
 
     addr = @sender.hostname_resolver.getaddress(@host)
@@ -232,36 +231,56 @@ class Fluent::SecureForwardOutput::Node
     opt = [@sender.send_timeout.to_i, 0].pack('L!L!')  # struct timeval
     sock.setsockopt(Socket::SOL_SOCKET, Socket::SO_SNDTIMEO, opt)
 
-    # TODO: SSLContext constructer parameter (SSL/TLS protocol version)
     log.trace "initializing SSL contexts"
-    context = OpenSSL::SSL::SSLContext.new
-    # TODO: context.ca_file = (ca_file_path)
-    # TODO: context.ciphers = (SSL Shared key chiper protocols)
+
+    context = OpenSSL::SSL::SSLContext.new(@sender.ssl_version)
+
+    log.trace "setting SSL verification options"
+
+    if @sender.secure
+      # inject OpenSSL::SSL::SSLContext::DEFAULT_PARAMS
+      # https://bugs.ruby-lang.org/issues/9424
+      context.set_params({})
+
+      if @sender.ssl_ciphers
+        context.ciphers = @sender.ssl_ciphers
+      else
+        ### follow httpclient configuration by nahi
+        # OpenSSL 0.9.8 default: "ALL:!ADH:!LOW:!EXP:!MD5:+SSLv2:@STRENGTH"
+        context.ciphers = "ALL:!aNULL:!eNULL:!SSLv2" # OpenSSL >1.0.0 default
+      end
+
+      log.trace "set verify_mode VERIFY_PEER"
+      context.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      if @sender.ca_cert_path
+        log.trace "set to use private CA", path: @sender.ca_cert_path
+        context.ca_file = @sender.ca_cert_path
+      end
+    end
 
     log.debug "trying to connect ssl session", host: @host, address: addr, port: @port
     begin
       sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
+      log.trace "connecting...", host: @host, address: addr, port: @port
+      sslsession.connect
     rescue => e
-      log.warn "failed to establish SSL connection", host: @host, address: addr, port: @port
-    end
-
-    unless sslsession.connect
-      log.debug "failed to connect", host: @host, address: addr, port: @port
+      log.warn "failed to establish SSL connection", error_class: e.class, error: e, host: @host, address: addr, port: @port
       @state = :failed
       return
     end
+
     log.debug "ssl session connected", host: @host, port: @port
 
     begin
-      unless @sender.allow_self_signed_certificate
+      if @sender.enable_strict_verification
         log.debug "checking peer's certificate", subject: sslsession.peer_cert.subject
         sslsession.post_connection_check(@hostlabel)
         verify = sslsession.verify_result
         if verify != OpenSSL::X509::V_OK
           err_name = Fluent::SecureForwardOutput::OpenSSLUtil.verify_result_name(verify)
-          log.warn "failed to verify certification while connecting host #{@host} as #{@hostlabel} (but not raised, why?)"
-          log.warn "verify_result: #{err_name}"
-          raise RuntimeError, "failed to verify certification while connecting host #{@host} as #{@hostlabel}"
+          log.warn "BUG: failed to verify certification while connecting host #{@host} as #{@hostlabel} (but not raised, why?)"
+          log.warn "BUG: verify_result: #{err_name}"
+          raise RuntimeError, "BUG: failed to verify certification and to handle it correctly while connecting host #{@host} as #{@hostlabel}"
         end
       end
     rescue OpenSSL::SSL::SSLError => e

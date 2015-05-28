@@ -15,6 +15,8 @@ module Fluent
 
     Fluent::Plugin.register_output('secure_forward', self)
 
+    config_param :secure, :bool
+
     config_param :self_hostname, :string
     include Fluent::Mixin::ConfigPlaceholders
 
@@ -26,8 +28,11 @@ module Fluent
     # config_param :hard_timeout, :time, :default => 60
     # config_param :expire_dns_cache, :time, :default => 0 # 0 means disable cache
 
-    config_param :allow_self_signed_certificate, :bool, default: true
-    config_param :ca_file_path, :string, default: nil
+    config_param :ca_cert_path, :string, default: nil
+
+    config_param :enable_strict_verification, :bool, default: nil # FQDN check with hostlabel
+    config_param :ssl_version, :string, default: 'TLSv1_2'
+    config_param :ssl_ciphers, :string, default: nil
 
     config_param :read_length, :size, default: 512 # 512bytes
     config_param :read_interval_msec, :integer, default: 50 # 50ms
@@ -68,8 +73,19 @@ module Fluent
     def configure(conf)
       super
 
-      unless @allow_self_signed_certificate
-        raise Fluent::ConfigError, "not tested yet!"
+      if @secure
+        if @ca_cert_path
+          raise Fluent::ConfigError, "CA cert file not found nor readable at '#{@ca_cert_path}'" unless File.readable?(@ca_cert_path)
+          begin
+            OpenSSL::X509::Certificate.new File.read(@ca_cert_path)
+          rescue OpenSSL::X509::CertificateError => e
+            raise Fluent::ConfigError, "failed to load CA cert file"
+          end
+        else
+          log.info "secure connection with valid certificates signed by public CA"
+        end
+      else
+        log.warn "'insecure' mode has vulnerability for man-in-the-middle attacks."
       end
 
       @read_interval = @read_interval_msec / 1000.0

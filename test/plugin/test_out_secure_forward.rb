@@ -16,6 +16,7 @@ class SecureForwardOutputTest < Test::Unit::TestCase
     p1 = nil
     assert_nothing_raised { p1 = create_driver(<<CONFIG).instance }
   type secure_forward
+  secure no
   shared_key secret_string
   self_hostname client.fqdn.local
   <server>
@@ -35,6 +36,7 @@ CONFIG
     p1 = nil
     assert_nothing_raised { p1 = create_driver(<<CONFIG).instance }
   type secure_forward
+  secure no
   shared_key secret_string
   self_hostname client.fqdn.local
   keepalive 1m
@@ -82,6 +84,7 @@ CONFIG
     p1 = nil
     assert_nothing_raised { p1 = create_driver(<<CONFIG).instance }
   type secure_forward
+  secure no
   shared_key secret_string
   self_hostname client.fqdn.local
   num_threads 3
@@ -98,5 +101,47 @@ CONFIG
 CONFIG
     assert_equal 3, p1.num_threads
     assert_equal 1, p1.log.logs.select{|line| line =~ /\[warn\]: Too many num_threads for secure-forward:/}.size
+  end
+
+  def test_configure_with_ca_cert
+    ca_dir = File.join(Dir.pwd, "test", "tmp", "cadir")
+    unless File.exist?(File.join(ca_dir, 'ca_cert.pem'))
+      FileUtils.mkdir_p(ca_dir)
+      opt = {
+        private_key_length: 2048,
+        cert_country:  'US',
+        cert_state:    'CA',
+        cert_locality: 'Mountain View',
+        cert_common_name: 'SecureForward CA',
+      }
+      cert, key = Fluent::SecureForward::CertUtil.generate_ca_pair(opt)
+      key_data = key.export(OpenSSL::Cipher::Cipher.new('aes256'), passphrase)
+      File.open(File.join(ca_dir, 'ca_key.pem'), 'w') do |file|
+        file.write key_data
+      end
+      File.open(File.join(ca_dir, 'ca_cert.pem'), 'w') do |file|
+        file.write cert.to_pem
+      end
+    end
+
+    p = nil
+    assert_nothing_raised { p = create_driver(<<CONFIG).instance }
+  type secure_forward
+  secure yes
+  ca_cert_path #{ca_dir}/ca_cert.pem
+  shared_key secret_string
+  self_hostname client.fqdn.local
+  num_threads 3
+  <server>
+    host server1.fqdn.local
+  </server>
+  <server>
+    host server2.fqdn.local
+  </server>
+  <server>
+    host server3.fqdn.local
+    standby
+  </server>
+CONFIG
   end
 end

@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+
+require 'fileutils'
+require 'fluent/plugin/secure_forward/cert_util'
+
+ca_dir, passphrase = ARGV
+
+unless ca_dir && passphrase
+  puts 'USAGE: secure-forward-ca-generate  DIR_PATH  PRIVATE_KEY_PASSPHRASE'
+  puts ''
+  exit 0
+end
+
+FileUtils.mkdir_p(ca_dir)
+
+opt = {
+  private_key_length: 2048,
+  cert_country:  'US',
+  cert_state:    'CA',
+  cert_locality: 'Mountain View',
+  cert_common_name: 'SecureForward CA',
+}
+cert, key = Fluent::SecureForward::CertUtil.generate_ca_pair(opt)
+
+key_data = key.export(OpenSSL::Cipher::Cipher.new('aes256'), passphrase)
+File.open(File.join(ca_dir, 'ca_key.pem'), 'w') do |file|
+  file.write key_data
+end
+File.open(File.join(ca_dir, 'ca_cert.pem'), 'w') do |file|
+  file.write cert.to_pem
+end
+
+puts "successfully generated: ca_key.pem, ca_cert.pem"
+puts "copy and use ca_cert.pem to client(out_secure_forward)"
