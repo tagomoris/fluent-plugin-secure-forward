@@ -82,7 +82,8 @@ module Fluent
             raise Fluent::ConfigError, "failed to load CA cert file"
           end
         else
-          log.info "secure connection with valid certificates signed by public CA"
+          raise Fluent::ConfigError, "FQDN verification required for certificates issued from public CA" unless @enable_strict_verification
+          log.info "secure connection with valid certificates issued from public CA"
         end
       else
         log.warn "'insecure' mode has vulnerability for man-in-the-middle attacks."

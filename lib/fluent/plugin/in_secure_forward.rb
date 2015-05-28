@@ -43,7 +43,8 @@ module Fluent
     config_param :ca_private_key_path, :string, default: nil
     config_param :ca_private_key_passphrase, :string, default: nil
 
-    # Cert automatically generated and signed by itself (for without any verification)
+    # Otherwise: Cert automatically generated and signed by itself (for without any verification)
+
     config_param :generate_private_key_length, :integer, default: 2048
     config_param :generate_cert_country, :string, default: 'US'
     config_param :generate_cert_state, :string, default: 'CA'
