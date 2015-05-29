@@ -396,17 +396,18 @@ To specify keepalive timeouts, use `keepalive` configuration with seconds. SSL c
 3. (server) send HELO
   * ['HELO', options(hash)]
   * options:
+    * nonce: string as nonce: used for shared key digest (required, v0.3.2 or later)
     * auth: string or blank\_string (string: authentication required, and its salt is this value)
     * keepalive: bool (allowed or not)
 4. (client) send PING
-  * ['PING', selfhostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + selfhostname + sharedkey), username || '', sha512\_hex(auth\_salt + username + password) || '']
+  * ['PING', selfhostname, sharedkey\_salt, sha512\_hex(sharedkey\_salt + selfhostname + nonce + sharedkey), username || '', sha512\_hex(auth\_salt + username + password) || '']
 5. (server) check PING
   * check sharedkey
   * check username / password (if required)
   * send PONG FAILURE if failed
   * ['PONG', false, 'reason of authentication failure', '', '']
 6. (server) send PONG
-  * ['PONG', bool(authentication result), 'reason if authentication failed', selfhostname, sha512\_hex(salt + selfhostname + sharedkey)]
+  * ['PONG', bool(authentication result), 'reason if authentication failed', selfhostname, sha512\_hex(salt + selfhostname + nonce + sharedkey)]
 7. (client) check PONG
   * check sharedkey
   * disconnect when failed

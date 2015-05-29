@@ -62,12 +62,12 @@ class Fluent::SecureForwardInput::Session
   def generate_helo
     log.debug "generating helo"
     # ['HELO', options(hash)]
-    [ 'HELO', {'auth' => (@receiver.authentication ? @auth_key_salt : ''), 'keepalive' => @receiver.allow_keepalive } ]
+    [ 'HELO', {'nonce' => @shared_key_nonce, 'auth' => (@receiver.authentication ? @auth_key_salt : ''), 'keepalive' => @receiver.allow_keepalive } ]
   end
 
   def check_ping(message)
     log.debug "checking ping"
-    # ['PING', self_hostname, shared_key\_salt, sha512\_hex(shared_key\_salt + self_hostname + shared_key),
+    # ['PING', self_hostname, shared_key\_salt, sha512\_hex(shared_key\_salt + self_hostname + nonce + shared_key),
     #  username || '', sha512\_hex(auth\_salt + username + password) || '']
     unless message.size == 6 && message[0] == 'PING'
       return false, 'invalid ping message'
@@ -79,7 +79,7 @@ class Fluent::SecureForwardInput::Session
                  else
                    @receiver.shared_key
                  end
-    serverside = Digest::SHA512.new.update(shared_key_salt).update(hostname).update(shared_key).hexdigest
+    serverside = Digest::SHA512.new.update(shared_key_salt).update(hostname).update(@shared_key_nonce).update(shared_key).hexdigest
     if shared_key_hexdigest != serverside
       log.warn "Shared key mismatch from '#{hostname}'"
       return false, 'shared_key mismatch'
@@ -104,7 +104,7 @@ class Fluent::SecureForwardInput::Session
   def generate_pong(auth_result, reason_or_salt)
     log.debug "generating pong"
     # ['PONG', bool(authentication result), 'reason if authentication failed',
-    #  self_hostname, sha512\_hex(salt + self_hostname + sharedkey)]
+    #  self_hostname, sha512\_hex(salt + self_hostname + nonce + sharedkey)]
     if not auth_result
       return ['PONG', false, reason_or_salt, '', '']
     end
@@ -114,7 +114,7 @@ class Fluent::SecureForwardInput::Session
                  else
                    @receiver.shared_key
                  end
-    shared_key_hex = Digest::SHA512.new.update(reason_or_salt).update(@receiver.self_hostname).update(shared_key).hexdigest
+    shared_key_hex = Digest::SHA512.new.update(reason_or_salt).update(@receiver.self_hostname).update(@shared_key_nonce).update(shared_key).hexdigest
     [ 'PONG', true, '', @receiver.self_hostname, shared_key_hex ]
   end
 
@@ -164,6 +164,7 @@ class Fluent::SecureForwardInput::Session
       return
     end
 
+    @shared_key_nonce = generate_salt
     @auth_key_salt = generate_salt
 
     buf = ''
