@@ -252,6 +252,14 @@ class Fluent::SecureForwardOutput::Node
 
       log.trace "set verify_mode VERIFY_PEER"
       context.verify_mode = OpenSSL::SSL::VERIFY_PEER
+      if @sender.enable_strict_verification
+        context.ca_store = OpenSSL::X509::Store.new
+        begin
+          context.ca_store.set_default_paths
+        rescue OpenSSL::X509::StoreError => e
+          log.warn "faild to load system default certificates", error: e
+        end
+      end
       if @sender.ca_cert_path
         log.trace "set to use private CA", path: @sender.ca_cert_path
         context.ca_file = @sender.ca_cert_path
