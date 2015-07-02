@@ -36,12 +36,12 @@ module Fluent
     # Cert signed by public CA
     config_param :cert_path, :string, default: nil
     config_param :private_key_path, :string, default: nil
-    config_param :private_key_passphrase, :string, default: nil
+    config_param :private_key_passphrase, :string, default: nil, :secret => true
 
     # Cert automatically generated and signed by private CA
     config_param :ca_cert_path, :string, default: nil
     config_param :ca_private_key_path, :string, default: nil
-    config_param :ca_private_key_passphrase, :string, default: nil
+    config_param :ca_private_key_passphrase, :string, default: nil, :secret => true
 
     # Otherwise: Cert automatically generated and signed by itself (for without any verification)
 
@@ -59,7 +59,7 @@ module Fluent
 
     config_section :user, param_name: :users do
       config_param :username, :string
-      config_param :password, :string
+      config_param :password, :string, :secret => true
     end
 
     config_section :client, param_name: :clients do

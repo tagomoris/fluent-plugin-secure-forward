@@ -49,7 +49,7 @@ module Fluent
       config_param :port, :integer, default: DEFAULT_SECURE_CONNECT_PORT
       config_param :shared_key, :string, default: nil
       config_param :username, :string, default: ''
-      config_param :password, :string, default: ''
+      config_param :password, :string, default: '', :secret => true
       config_param :standby, :bool, default: false
     end
     attr_reader :nodes
