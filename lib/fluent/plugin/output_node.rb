@@ -322,8 +322,11 @@ class Fluent::SecureForwardOutput::Node
       rescue OpenSSL::SSL::SSLError
         # to wait i/o restart
         sleep socket_interval
-      rescue EOFError, Errno::ETIMEDOUT
-        log.warn "disconnected from #{@host}"
+      rescue SystemCallError => e
+        log.warn "disconnected by Error", error_class: e.class, error: e, host: @host, port: @port
+        break
+      rescue EOFError
+        log.warn "disconnected", host: @host, port: @port
         break
       end
     end
