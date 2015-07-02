@@ -20,7 +20,7 @@ module Fluent
     config_param :self_hostname, :string
     include Fluent::Mixin::ConfigPlaceholders
 
-    config_param :shared_key, :string
+    config_param :shared_key, :string, :secret => true
 
     config_param :keepalive, :time, default: nil # nil/0 means disable keepalive expiration
 
@@ -47,7 +47,7 @@ module Fluent
       config_param :host, :string
       config_param :hostlabel, :string, default: nil
       config_param :port, :integer, default: DEFAULT_SECURE_CONNECT_PORT
-      config_param :shared_key, :string, default: nil
+      config_param :shared_key, :string, default: nil, :secret => true
       config_param :username, :string, default: ''
       config_param :password, :string, default: '', :secret => true
       config_param :standby, :bool, default: false

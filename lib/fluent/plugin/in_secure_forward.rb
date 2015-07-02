@@ -21,7 +21,7 @@ module Fluent
     config_param :self_hostname, :string
     include Fluent::Mixin::ConfigPlaceholders
 
-    config_param :shared_key, :string
+    config_param :shared_key, :string, :secret => true
 
     config_param :bind, :string, default: '0.0.0.0'
     config_param :port, :integer, default: DEFAULT_SECURE_LISTEN_PORT
@@ -65,7 +65,7 @@ module Fluent
     config_section :client, param_name: :clients do
       config_param :host, :string, default: nil
       config_param :network, :string, default: nil
-      config_param :shared_key, :string, default: nil
+      config_param :shared_key, :string, default: nil, :secret => true
       config_param :users, :string, default: nil # comma separated username list
     end
     attr_reader :nodes
