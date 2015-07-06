@@ -27,6 +27,8 @@ class Fluent::SecureForwardOutput::Node
     @password = conf.password
     @standby = conf.standby
 
+    @proxy_uri = conf.proxy_uri
+
     @keepalive = sender.keepalive
 
     @authentication = nil
@@ -53,7 +55,7 @@ class Fluent::SecureForwardOutput::Node
   def dup
     renewed = self.class.new(
       @sender,
-      Fluent::Config::Section.new({host: @host, port: @port, hostlabel: @hostlabel, username: @username, password: @password, shared_key: @shared_key, standby: @standby})
+      Fluent::Config::Section.new({host: @host, port: @port, hostlabel: @hostlabel, username: @username, password: @password, shared_key: @shared_key, standby: @standby, proxy_uri: @proxy_uri})
     )
     renewed
   end
@@ -217,8 +219,14 @@ class Fluent::SecureForwardOutput::Node
 
     addr = @sender.hostname_resolver.getaddress(@host)
     log.debug "create tcp socket to node", host: @host, address: addr, port: @port
+
     begin
+    if @proxy_uri.nil? then
       sock = TCPSocket.new(addr, @port)
+    else
+      proxy = Proxifier::Proxy(@proxy_uri)
+      sock = proxy.open(addr, @port)
+    end
     rescue => e
       log.warn "failed to connect for secure-forward", error_class: e.class, error: e, host: @host, address: addr, port: @port
       @state = :failed
