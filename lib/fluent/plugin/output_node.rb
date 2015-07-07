@@ -4,6 +4,8 @@
 # require 'digest'
 # require 'resolve/hostname'
 
+require 'proxifier'
+
 require_relative 'openssl_util'
 
 class Fluent::SecureForwardOutput::Node
