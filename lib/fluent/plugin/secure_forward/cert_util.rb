@@ -3,6 +3,14 @@ require 'openssl'
 module Fluent
   module SecureForward
     module CertUtil
+      def self.certificates_from_file(path)
+        data = File.read(path)
+        pattern = Regexp.compile('-+BEGIN CERTIFICATE-+\n(?:[^-]*\n)+-+END CERTIFICATE-+\n', Regexp::MULTILINE)
+        list = []
+        data.scan(pattern){|match| list << OpenSSL::X509::Certificate.new(match)}
+        list
+      end
+
       def self.generate_ca_pair(opts={})
         key = OpenSSL::PKey::RSA.generate(opts[:private_key_length])
 

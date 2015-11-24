@@ -96,6 +96,10 @@ module Fluent
         if @cert_path
           raise Fluent::ConfigError, "private_key_path required" unless @private_key_path
           raise Fluent::ConfigError, "private_key_passphrase required" unless @private_key_passphrase
+          certs = Fluent::SecureForward::CertUtil.certificates_from_file(@cert_path)
+          if certs.size < 1
+            raise Fluent::ConfigError, "no valid certificates in cert_path: #{@cert_path}"
+          end
         else # @ca_cert_path
           raise Fluent::ConfigError, "ca_private_key_path required" unless @ca_private_key_path
           raise Fluent::ConfigError, "ca_private_key_passphrase required" unless @ca_private_key_passphrase
@@ -171,9 +175,12 @@ module Fluent
     def certificate
       return @cert, @key if @cert && @key
 
+      @client_ca = nil
       if @cert_path
         @key = OpenSSL::PKey::RSA.new(File.read(@private_key_path), @private_key_passphrase)
-        @cert = OpenSSL::X509::Certificate.new(File.read(@cert_path))
+        certs = Fluent::SecureForward::CertUtil.certificates_from_file(@cert_path)
+        @cert = certs.shift
+        @client_ca = certs
       elsif @ca_cert_path
         opts = {
           ca_cert_path: @ca_cert_path,
@@ -220,6 +227,9 @@ module Fluent
 
       ctx.cert = cert
       ctx.key = key
+      if @client_ca
+        ctx.extra_chain_cert = @client_ca
+      end
 
       log.trace "start to listen", bind: @bind, port: @port
       server = TCPServer.new(@bind, @port)
