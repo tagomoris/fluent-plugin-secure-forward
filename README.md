@@ -378,6 +378,26 @@ To specify keepalive timeouts, use `keepalive` configuration with seconds. SSL c
 </match>
 ```
 
+
+If you connect via Proxy, 
+set for `proxy_uri` in <server> section:
+```apache
+<match secret.data.**>
+  type secure_forward
+  shared_key secret_string
+  self_hostname client.fqdn.local
+
+  secure yes
+  # and configurations for certs/verification
+
+  <server>
+    host server.fqdn.local  # or IP
+    # port 24284
+    proxy_uri http://foo.bar.local:3128
+  </server>
+</match>
+```
+
 ## Senario (developer document)
 
 * server
