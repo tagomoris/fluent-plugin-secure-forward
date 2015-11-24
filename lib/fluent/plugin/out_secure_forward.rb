@@ -41,6 +41,8 @@ module Fluent
     config_param :reconnect_interval, :time, default: 5
     config_param :established_timeout, :time, default: 10
 
+    config_param :proxy_uri, :string, default: nil
+
     attr_reader :read_interval, :socket_interval
 
     config_section :server, param_name: :servers do
@@ -51,6 +53,7 @@ module Fluent
       config_param :username, :string, default: ''
       config_param :password, :string, default: '', secret: true
       config_param :standby, :bool, default: false
+      config_param :proxy_uri, :string, default: nil
     end
     attr_reader :nodes
 
