@@ -223,12 +223,12 @@ class Fluent::SecureForwardOutput::Node
     log.debug "create tcp socket to node", host: @host, address: addr, port: @port
 
     begin
-    if @proxy_uri.nil? then
-      sock = TCPSocket.new(addr, @port)
-    else
-      proxy = Proxifier::Proxy(@proxy_uri)
-      sock = proxy.open(addr, @port)
-    end
+      if @proxy_uri.nil? then
+        sock = TCPSocket.new(addr, @port)
+      else
+        proxy = Proxifier::Proxy(@proxy_uri)
+        sock = proxy.open(addr, @port)
+      end
     rescue => e
       log.warn "failed to connect for secure-forward", error_class: e.class, error: e, host: @host, address: addr, port: @port
       @state = :failed
