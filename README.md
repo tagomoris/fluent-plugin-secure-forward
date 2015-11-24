@@ -380,7 +380,7 @@ To specify keepalive timeouts, use `keepalive` configuration with seconds. SSL c
 
 
 If you connect via Proxy, 
-set for `proxy_uri` in <server> section:
+set for `proxy_uri` in `<server>` section:
 ```apache
 <match secret.data.**>
   type secure_forward
