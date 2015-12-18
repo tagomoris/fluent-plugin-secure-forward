@@ -196,22 +196,23 @@ class Fluent::SecureForwardInput::Session
   rescue Errno::ECONNRESET => e
     # disconnected from client
   rescue => e
-    log.warn "unexpected error in in_secure_forward", error_class: e.class, error: e
+    log.warn "unexpected error in in_secure_forward from #{host}:#{port}", error_class: e.class, error: e
   ensure
+    log.debug "Shutting down #{host}:#{port}"
     self.shutdown
   end
 
   def shutdown
     @state = :closed
+    log.debug "Shutdown called"
+    @socket.close
     if @thread == Thread.current
-      @socket.close
       @thread.kill
     else
       if @thread
         @thread.kill
         @thread.join
       end
-      @socket.close
     end
   rescue => e
     log.debug "#{e.class}:#{e.message}"
