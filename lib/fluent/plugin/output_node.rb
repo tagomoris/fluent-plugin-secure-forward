@@ -334,9 +334,13 @@ class Fluent::SecureForwardOutput::Node
         sleep socket_interval
       rescue SystemCallError => e
         log.warn "disconnected by Error", error_class: e.class, error: e, host: @host, port: @port
+        self.release!
+        self.detach!
         break
       rescue EOFError
         log.warn "disconnected", host: @host, port: @port
+        self.release!
+        self.detach!
         break
       end
     end
