@@ -16,7 +16,11 @@ module Fluent
 
     Fluent::Plugin.register_input('secure_forward', self)
 
-    config_param :secure, :bool # if secure, cert_path or ca_cert_path required
+    config_param :secure, :bool,
+                 desc: <<-DESC
+Set yes or true to enable.
+if secure, cert_path or ca_cert_path also required.
+DESC
 
     config_param :self_hostname, :string
     include Fluent::Mixin::ConfigPlaceholders
@@ -27,21 +31,35 @@ module Fluent
     config_param :port, :integer, default: DEFAULT_SECURE_LISTEN_PORT
     config_param :allow_keepalive, :bool, default: true #TODO: implement
 
-    config_param :allow_anonymous_source, :bool, default: true
-    config_param :authentication, :bool, default: false
+    config_param :allow_anonymous_source, :bool, default: true,
+                 :desc => "Allow to accept from nodes of <client>."
+    config_param :authentication, :bool, default: false,
+                 :desc => "Deny clients without valid username/password."
 
     config_param :ssl_version, :string, default: 'TLSv1_2'
     config_param :ssl_ciphers, :string, default: nil
 
     # Cert signed by public CA
-    config_param :cert_path, :string, default: nil
-    config_param :private_key_path, :string, default: nil
-    config_param :private_key_passphrase, :string, default: nil, secret: true
+    config_param :cert_path, :string, default: nil,
+                 :desc => "Set path of certificate file issued from CA."
+    config_param :private_key_path, :string, default: nil,
+                 :desc => "Set path of private key file."
+    config_param :private_key_passphrase, :string, default: nil, secret: true,
+                 :desc => "Set passphrase of private key."
 
     # Cert automatically generated and signed by private CA
-    config_param :ca_cert_path, :string, default: nil
-    config_param :ca_private_key_path, :string, default: nil
-    config_param :ca_private_key_passphrase, :string, default: nil, secret: true
+    config_param :ca_cert_path, :string, default: nil,
+                 :desc => <<-DESC
+Path for ca_cert.pem which is automatically generated and signed by private CA
+certificate.
+DESC
+    config_param :ca_private_key_path, :string, default: nil,
+                 :desc => <<-DESC
+Path for ca_key.pem which is automatically generated and signed by private CA
+certificate.
+DESC
+    config_param :ca_private_key_passphrase, :string, default: nil, secret: true,
+                 :desc => "Passphrase for private CA secret key."
 
     # Otherwise: Cert automatically generated and signed by itself (for without any verification)
 
@@ -64,9 +82,14 @@ module Fluent
 
     config_section :client, param_name: :clients do
       config_param :host, :string, default: nil
-      config_param :network, :string, default: nil
+      config_param :network, :string, default: nil,
+                   :desc => <<-DESC
+Network address specification.
+e.g.) 192.168.16.0/24
+DESC
       config_param :shared_key, :string, default: nil, secret: true
-      config_param :users, :string, default: nil # comma separated username list
+      config_param :users, :string, default: nil,
+                   :desc => "Comma separated username list."
     end
     attr_reader :nodes
 
