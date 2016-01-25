@@ -33,7 +33,7 @@ To communicate over SSL with valid certificate issued from public CA, configure 
 
 ```apache
 <source>
-  type secure_forward
+  @type secure_forward
   
   # bind 0.0.0.0 # default
   # port 24284 # default
@@ -55,7 +55,7 @@ For output plugin, specify just 2 options below:
 
 ```apache
 <match secret.data.**>
-  type secure_forward
+  @type secure_forward
   
   self_hostname client.fqdn.local
   shared_key    secret_string
@@ -87,7 +87,7 @@ And then, configure Fluentd with these files and the passphrase. With this confi
 
 ```apache
 <source>
-  type secure_forward
+  @type secure_forward
   
   # bind 0.0.0.0 # default
   # port 24284 # default
@@ -109,7 +109,7 @@ For output plugin, specify just 2 options below:
 
 ```apache
 <match secret.data.**>
-  type secure_forward
+  @type secure_forward
   
   self_hostname myclient.local
   shared_key    secret_string
@@ -137,7 +137,7 @@ For just testing or data center internal communications, this plugin has a featu
 
 ```apache
 <source>
-  type secure_forward
+  @type secure_forward
   
   self_hostname myserver.local
   shared_key    secret_string
@@ -150,7 +150,7 @@ Configure output plugin just same way:
 
 ```apache
 <match data.**>
-  type secure_forward
+  @type secure_forward
   
   self_hostname myclient.local
   shared_key    secret_string
@@ -187,7 +187,7 @@ Minimal configurations like below:
 
 ```apache
 <source>
-  type secure_forward
+  @type secure_forward
   shared_key         secret_string
   self_hostname      server.fqdn.local  # This fqdn is used as CN (Common Name) of certificates
   
@@ -200,7 +200,7 @@ To check username/password from clients, like this:
 
 ```apache
 <source>
-  type secure_forward
+  @type secure_forward
   shared_key         secret_string
   self_hostname      server.fqdn.local
   
@@ -223,7 +223,7 @@ To deny unknown source IP/hosts:
 
 ```apache
 <source>
-  type secure_forward
+  @type secure_forward
   shared_key         secret_string
   self_hostname      server.fqdn.local
   
@@ -248,7 +248,7 @@ You can use both of username/password check and client check:
 
 ```apache
 <source>
-  type secure_forward
+  @type secure_forward
   shared_key         secret_string
   self_hostname      server.fqdn.local
   
@@ -290,7 +290,7 @@ Minimal configurations like this:
 
 ```apache
 <match secret.data.**>
-  type secure_forward
+  @type secure_forward
   shared_key secret_string
   self_hostname client.fqdn.local
   
@@ -308,7 +308,7 @@ Without hostname ACL (and it's not implemented yet), `self_hostname` is not chec
 
 ```apache
 <match secret.data.**>
-  type secure_forward
+  @type secure_forward
   shared_key secret_string
   self_hostname ${hostname}
   
@@ -328,7 +328,7 @@ If server requires username/password, set `username` and `password` in `<server>
 
 ```apache
 <match secret.data.**>
-  type secure_forward
+  @type secure_forward
   shared_key secret_string
   self_hostname client.fqdn.local
   
@@ -363,7 +363,7 @@ To specify keepalive timeouts, use `keepalive` configuration with seconds. SSL c
 
 ```apache
 <match secret.data.**>
-  type secure_forward
+  @type secure_forward
   shared_key secret_string
   self_hostname client.fqdn.local
   
@@ -383,7 +383,7 @@ If you connect via Proxy,
 set for `proxy_uri` in `<server>` section:
 ```apache
 <match secret.data.**>
-  type secure_forward
+  @type secure_forward
   shared_key secret_string
   self_hostname client.fqdn.local
 
