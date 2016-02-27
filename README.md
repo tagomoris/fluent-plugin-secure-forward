@@ -398,7 +398,7 @@ set for `proxy_uri` in `<server>` section:
 </match>
 ```
 
-## Senario (developer document)
+## Scenario (developer document)
 
 * server
   * in\_secure\_forward
