@@ -15,22 +15,35 @@ module Fluent
 
     Fluent::Plugin.register_output('secure_forward', self)
 
-    config_param :secure, :bool
+    config_param :secure, :bool,
+                 :desc => <<-DESC
+Set yes or true to enable.
+if secure, cert_path or ca_cert_path also required.
+DESC
 
     config_param :self_hostname, :string
     include Fluent::Mixin::ConfigPlaceholders
 
     config_param :shared_key, :string, secret: true
 
-    config_param :keepalive, :time, default: nil # nil/0 means disable keepalive expiration
+    config_param :keepalive, :time, default: nil,
+                 :desc => <<-DESC
+To specify keepalive timeouts, use keepalive configuration with seconds.
+Note that nil/0 means disable keepalive expiration.
+DESC
 
     config_param :send_timeout, :time, default: 60
     # config_param :hard_timeout, :time, :default => 60
     # config_param :expire_dns_cache, :time, :default => 0 # 0 means disable cache
 
-    config_param :ca_cert_path, :string, default: nil
+    config_param :ca_cert_path, :string, default: nil,
+                 :desc => "Path for certificate ca_cert.pem."
 
-    config_param :enable_strict_verification, :bool, default: nil # FQDN check with hostlabel
+    config_param :enable_strict_verification, :bool, default: nil,
+                 desc:  <<-DESC
+Specify yes or true to enable.
+FQDN check with hostlabel.
+DESC
     config_param :ssl_version, :string, default: 'TLSv1_2'
     config_param :ssl_ciphers, :string, default: nil
 
@@ -47,11 +60,20 @@ module Fluent
 
     config_section :server, param_name: :servers do
       config_param :host, :string
-      config_param :hostlabel, :string, default: nil
+      config_param :hostlabel, :string, default: nil,
+                   :desc => <<-DESC
+Specify hostlabel if server (in_forward) have different hostname
+(self_host configuration of in_forward) from DNS name
+(first.fqdn.local, second.fqdn.local or standby.fqdn.local)
+This configuration variable will be used to check common name (CN) of
+certifications.
+DESC
       config_param :port, :integer, default: DEFAULT_SECURE_CONNECT_PORT
       config_param :shared_key, :string, default: nil, secret: true
-      config_param :username, :string, default: ''
-      config_param :password, :string, default: '', secret: true
+      config_param :username, :string, default: '',
+                   :desc => "If server requires username, set username."
+      config_param :password, :string, default: '', secret: true,
+                   :desc => "If server requires password, set password."
       config_param :standby, :bool, default: false
       config_param :proxy_uri, :string, default: nil
     end
