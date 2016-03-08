@@ -32,6 +32,7 @@ class Fluent::SecureForwardOutput::Node
     @proxy_uri = conf.proxy_uri
 
     @keepalive = sender.keepalive
+    @connection_hard_timeout = sender.connection_hard_timeout
 
     @authentication = nil
 
@@ -47,6 +48,7 @@ class Fluent::SecureForwardOutput::Node
 
     @shared_key_salt = generate_salt
     @state = :helo
+    @mtime = Time.now
     @thread = nil
   end
 
@@ -137,6 +139,7 @@ class Fluent::SecureForwardOutput::Node
     @shared_key_nonce = opts['nonce'] || '' # make shared_key_check failed (instead of error) if protocol version mismatch exist
     @authentication = opts['auth']
     @allow_keepalive = opts['keepalive']
+    @mtime = Time.now
     true
   end
 
@@ -152,6 +155,7 @@ class Fluent::SecureForwardOutput::Node
     else
       ping.push('','')
     end
+    @mtime = Time.now
     ping
   end
 
@@ -177,10 +181,12 @@ class Fluent::SecureForwardOutput::Node
       return false, 'shared key mismatch'
     end
 
+    @mtime = Time.now
     return true, nil
   end
 
   def send_data(data)
+    @mtime = Time.now
     @sslsession.write data.to_msgpack
   end
 
@@ -200,6 +206,7 @@ class Fluent::SecureForwardOutput::Node
         return
       end
       send_data generate_ping()
+      @mtime = Time.now
       @state = :pingpong
     when :pingpong
       success, reason = check_pong(data)
@@ -211,6 +218,7 @@ class Fluent::SecureForwardOutput::Node
       log.info "connection established to #{@host}" if @first_session
       @state = :established
       @expire = Time.now + @keepalive if @keepalive && @keepalive > 0
+      @mtime = Time.now
       log.debug "connection established", host: @host, port: @port, expire: @expire
     end
   end
@@ -282,6 +290,7 @@ class Fluent::SecureForwardOutput::Node
       sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
       log.trace "connecting...", host: @host, address: addr, port: @port
       sslsession.connect
+      @mtime = Time.now
     rescue => e
       log.warn "failed to establish SSL connection", error_class: e.class, error: e, host: @host, address: addr, port: @port
       @state = :failed
@@ -317,8 +326,11 @@ class Fluent::SecureForwardOutput::Node
     read_interval = @sender.read_interval
     socket_interval = @sender.socket_interval
 
+    @mtime = Time.now
+
     loop do
       break if @detach
+      break if Time.now > @mtime + @connection_hard_timeout
 
       begin
         while @sslsession.read_nonblock(read_length, buf)
@@ -327,11 +339,21 @@ class Fluent::SecureForwardOutput::Node
             next
           end
           @unpacker.feed_each(buf, &method(:on_read))
+          @mtime = Time.now
           buf = ''
         end
-      rescue OpenSSL::SSL::SSLError
+      rescue OpenSSL::SSL::SSLError => e
         # to wait i/o restart
-        sleep socket_interval
+        log.trace "SSLError", error_class: e.class, error: e, mtime: @mtime, host: @host, port: @port
+        if Time.now > @mtime + @connection_hard_timeout
+          log.warn "connection hard timeout", mtime: @mtime, timeout: @connection_hard_timeout, host: @host, port: @port
+          log.warn "aborting connection", host: @host, port: @port
+          self.release!
+          self.detach!
+          break
+        else
+          sleep socket_interval
+        end
       rescue SystemCallError => e
         log.warn "disconnected by Error", error_class: e.class, error: e, host: @host, port: @port
         self.release!

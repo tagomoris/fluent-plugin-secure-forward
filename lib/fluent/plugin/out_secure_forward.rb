@@ -23,10 +23,12 @@ module Fluent
     config_param :shared_key, :string, secret: true
 
     config_param :keepalive, :time, default: nil # nil/0 means disable keepalive expiration
+    config_param :connection_hard_timeout, :time, default: nil # specifying 0 explicitly means not to disconnect stuck connection forever
 
     config_param :send_timeout, :time, default: 60
     # config_param :hard_timeout, :time, :default => 60
-    # config_param :expire_dns_cache, :time, :default => 0 # 0 means disable cache
+
+    config_param :expire_dns_cache, :time, default: 60 # 0 means disable DNS cache
 
     config_param :ca_cert_path, :string, default: nil
 
@@ -92,6 +94,10 @@ module Fluent
         log.warn "'insecure' mode has vulnerability for man-in-the-middle attacks."
       end
 
+      if @keepalive && !@connection_hard_timeout
+        @connection_hard_timeout = @keepalive * 1.2
+      end
+
       @read_interval = @read_interval_msec / 1000.0
       @socket_interval = @socket_interval_msec / 1000.0
 
@@ -109,7 +115,7 @@ module Fluent
       @next_node = 0
       @mutex = Mutex.new
 
-      @hostname_resolver = Resolve::Hostname.new(system_resolver: true)
+      @hostname_resolver = Resolve::Hostname.new(system_resolver: true, ttl: @expire_dns_cache)
 
       true
     end
@@ -173,7 +179,7 @@ module Fluent
           end
 
           node = @nodes[i]
-          log.debug "reconnecting to node", host: node.host, port: node.port, expire: node.expire, expired: node.expired?, detached: node.detached?
+          log.debug "reconnecting to node", host: node.host, port: node.port, state: node.state, expire: node.expire, expired: node.expired?, detached: node.detached?
 
           renewed = node.dup
           renewed.start
