@@ -86,6 +86,11 @@ module Fluent
       define_method("log") { $log }
     end
 
+    # Define `router` method of v0.12 to support v0.10
+    unless method_defined?(:router)
+      define_method("router") { Fluent::Engine }
+    end
+
     def configure(conf)
       super
 
@@ -263,7 +268,7 @@ module Fluent
       if entries.class == String
         # PackedForward
         es = MessagePackEventStream.new(entries, @cached_unpacker)
-        Fluent::Engine.emit_stream(tag, es)
+        router.emit_stream(tag, es)
 
       elsif entries.class == Array
         # Forward
@@ -274,14 +279,14 @@ module Fluent
           record = e[1]
           es.add(time, record)
         }
-        Fluent::Engine.emit_stream(tag, es)
+        router.emit_stream(tag, es)
 
       else
         # Message
         time = msg[1]
         time = Fluent::Engine.now if time == 0
         record = msg[2]
-        Fluent::Engine.emit(tag, time, record)
+        router.emit(tag, time, record)
       end
     end
   end
