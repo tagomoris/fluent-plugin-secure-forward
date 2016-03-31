@@ -330,7 +330,7 @@ class Fluent::SecureForwardOutput::Node
 
     loop do
       break if @detach
-      break if Time.now > @mtime + @connection_hard_timeout
+      break if @connection_hard_timeout && Time.now > @mtime + @connection_hard_timeout
 
       begin
         while @sslsession.read_nonblock(read_length, buf)
@@ -345,7 +345,7 @@ class Fluent::SecureForwardOutput::Node
       rescue OpenSSL::SSL::SSLError => e
         # to wait i/o restart
         log.trace "SSLError", error_class: e.class, error: e, mtime: @mtime, host: @host, port: @port
-        if Time.now > @mtime + @connection_hard_timeout
+        if @connection_hard_timeout && Time.now > @mtime + @connection_hard_timeout
           log.warn "connection hard timeout", mtime: @mtime, timeout: @connection_hard_timeout, host: @host, port: @port
           log.warn "aborting connection", host: @host, port: @port
           self.release!
