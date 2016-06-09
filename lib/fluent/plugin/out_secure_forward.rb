@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-require 'fluent/mixin/config_placeholders'
-
 module Fluent
   class SecureForwardOutput < ObjectBufferedOutput
   end
@@ -17,8 +15,8 @@ module Fluent
 
     config_param :secure, :bool
 
+    config_param :hostname, :string, default: nil
     config_param :self_hostname, :string
-    include Fluent::Mixin::ConfigPlaceholders
 
     config_param :shared_key, :string, secret: true
 
@@ -75,8 +73,29 @@ module Fluent
       define_method("log") { $log }
     end
 
+    def replace_hostname_placeholder(conf)
+      hostname = @hostname ? @hostname : Socket.gethostname
+
+      placeholders = ['__HOSTNAME__', '${hostname}']
+
+
+      check_element = ->(placeholders, c) {
+        c.keys.each do |k|
+          v = c.fetch(k, nil)
+          if v and placeholders.include? v
+            c[k] = hostname
+          end
+        end
+        c.elements.each{|e| check_element.call(placeholders,e)}
+      }
+      check_element.call(placeholders,conf)
+
+    end
+
     def configure(conf)
       super
+
+      replace_hostname_placeholder(conf)
 
       if @secure
         if @ca_cert_path
