@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 Gem::Specification.new do |gem|
   gem.name          = "fluent-plugin-secure-forward"
-  gem.version       = "0.4.1"
+  gem.version       = "0.4.2"
   gem.authors       = ["TAGOMORI Satoshi"]
   gem.email         = ["tagomoris@gmail.com"]
   gem.summary       = %q{Fluentd input/output plugin to forward over SSL with authentications}
