@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+require 'fluent/input'
 require 'fluent/mixin/config_placeholders'
 
 module Fluent
