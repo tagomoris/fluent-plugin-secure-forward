@@ -100,7 +100,7 @@ module Fluent
           raise Fluent::ConfigError, "CA cert file not found nor readable at '#{@ca_cert_path}'" unless File.readable?(@ca_cert_path)
           begin
             OpenSSL::X509::Certificate.new File.read(@ca_cert_path)
-          rescue OpenSSL::X509::CertificateError => e
+          rescue OpenSSL::X509::CertificateError
             raise Fluent::ConfigError, "failed to load CA cert file"
           end
         else

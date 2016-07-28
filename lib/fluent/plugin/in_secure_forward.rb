@@ -88,6 +88,11 @@ module Fluent
       define_method("router") { Fluent::Engine }
     end
 
+    def initialize
+      super
+      @cert = nil
+    end
+
     HOSTNAME_PLACEHOLDERS = [ '__HOSTNAME__', '${hostname}' ]
 
     def replace_hostname_placeholder(conf, hostname)

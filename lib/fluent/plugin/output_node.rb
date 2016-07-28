@@ -166,7 +166,7 @@ class Fluent::SecureForwardOutput::Node
     unless message.size == 5 && message[0] == 'PONG'
       return false, 'invalid format for PONG message'
     end
-    pong, auth_result, reason, hostname, shared_key_hexdigest = message
+    _pong, auth_result, reason, hostname, shared_key_hexdigest = message
 
     unless auth_result
       return false, 'authentication failed: ' + reason

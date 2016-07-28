@@ -72,7 +72,7 @@ class Fluent::SecureForwardInput::Session
     unless message.size == 6 && message[0] == 'PING'
       return false, 'invalid ping message'
     end
-    ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
+    _ping, hostname, shared_key_salt, shared_key_hexdigest, username, password_digest = message
 
     shared_key = if @node && @node[:shared_key]
                    @node[:shared_key]
@@ -156,7 +156,7 @@ class Fluent::SecureForwardInput::Session
       return
     end
 
-    proto, port, host, ipaddr = @socket.io.peeraddr
+    _proto, port, host, ipaddr = @socket.io.peeraddr
     @node = check_node(ipaddr)
     if @node.nil? && (! @receiver.allow_anonymous_source)
       log.warn "Connection required from unknown host '#{host}' (#{ipaddr}), disconnecting..."
