@@ -234,4 +234,37 @@ CONFIG
   ca_private_key_passphrase testing secret phrase
 CONFIG
   end
+
+  def test_configure_using_hostname
+    my_system_hostname = Socket.gethostname
+
+    d = create_driver(%[
+      secure false
+      shared_key    secret_string
+      self_hostname ${hostname}
+    ])
+    assert_equal my_system_hostname, d.instance.self_hostname
+
+    d = create_driver(%[
+      secure false
+      shared_key    secret_string
+      self_hostname __HOSTNAME__
+    ])
+    assert_equal my_system_hostname, d.instance.self_hostname
+
+    d = create_driver(%[
+      secure false
+      shared_key    secret_string
+      self_hostname test.${hostname}
+    ])
+    assert_equal "test.#{my_system_hostname}", d.instance.self_hostname
+
+    d = create_driver(%[
+      secure false
+      shared_key    secret_string
+      hostname dummy.local
+      self_hostname test.${hostname}
+    ])
+    assert_equal "test.dummy.local", d.instance.self_hostname
+  end
 end

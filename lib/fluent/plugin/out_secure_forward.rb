@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
 
 require 'fluent/output'
-require 'fluent/mixin/config_placeholders'
+
+require 'socket'
+require 'openssl'
+require 'digest'
+require 'resolve/hostname'
+require 'securerandom'
 
 module Fluent
   class SecureForwardOutput < ObjectBufferedOutput
@@ -18,8 +23,8 @@ module Fluent
 
     config_param :secure, :bool
 
+    config_param :hostname, :string, default: nil # This is evaluated after rewriting conf in fact.
     config_param :self_hostname, :string
-    include Fluent::Mixin::ConfigPlaceholders
 
     config_param :shared_key, :string, secret: true
 
@@ -62,21 +67,32 @@ module Fluent
 
     attr_reader :hostname_resolver
 
-    def initialize
-      super
-      require 'socket'
-      require 'openssl'
-      require 'digest'
-      require 'resolve/hostname'
-      require 'securerandom'
-    end
-
     # Define `log` method for v0.10.42 or earlier
     unless method_defined?(:log)
       define_method("log") { $log }
     end
 
+    HOSTNAME_PLACEHOLDERS = [ '__HOSTNAME__', '${hostname}' ]
+
+    def replace_hostname_placeholder(conf, hostname)
+      replace_element = ->(c) {
+        c.keys.each do |key|
+          v = c[key]
+          if v && v.respond_to?(:include?) && v.respond_to?(:gsub)
+            if HOSTNAME_PLACEHOLDERS.any?{|ph| v.include?(ph) }
+              c[key] = HOSTNAME_PLACEHOLDERS.inject(v){|r, ph| r.gsub(ph, hostname) }
+            end
+          end
+        end
+        c.elements.each{|e| replace_element.call(e) }
+      }
+      replace_element.call(conf)
+    end
+
     def configure(conf)
+      hostname = conf.has_key?('hostname') ? conf['hostname'].to_s : Socket.gethostname
+      replace_hostname_placeholder(conf, hostname)
+
       super
 
       if @secure

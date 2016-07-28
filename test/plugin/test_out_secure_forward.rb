@@ -144,4 +144,53 @@ CONFIG
   </server>
 CONFIG
   end
+
+  def test_configure_using_hostname
+    my_system_hostname = Socket.gethostname
+
+    d = create_driver(%[
+      secure no
+      shared_key secret_string
+      self_hostname ${hostname}
+      <server>
+        host server.fqdn.local  # or IP
+        # port 24284
+      </server>
+    ])
+    assert_equal my_system_hostname, d.instance.self_hostname
+
+    d = create_driver(%[
+      secure no
+      shared_key secret_string
+      self_hostname __HOSTNAME__
+      <server>
+        host server.fqdn.local  # or IP
+        # port 24284
+      </server>
+    ])
+    assert_equal my_system_hostname, d.instance.self_hostname
+
+    d = create_driver(%[
+      secure no
+      shared_key secret_string
+      self_hostname test.${hostname}
+      <server>
+        host server.fqdn.local  # or IP
+        # port 24284
+      </server>
+    ])
+    assert_equal "test.#{my_system_hostname}", d.instance.self_hostname
+
+    d = create_driver(%[
+      secure no
+      shared_key secret_string
+      hostname dummy.local
+      self_hostname test.${hostname}
+      <server>
+        host server.fqdn.local  # or IP
+        # port 24284
+      </server>
+    ])
+    assert_equal "test.dummy.local", d.instance.self_hostname
+  end
 end
