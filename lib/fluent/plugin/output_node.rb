@@ -227,8 +227,14 @@ class Fluent::SecureForwardOutput::Node
     Thread.current.abort_on_exception = true
     log.debug "starting client"
 
-    addr = @sender.hostname_resolver.getaddress(@host)
-    log.debug "create tcp socket to node", host: @host, address: addr, port: @port
+    begin
+      addr = @sender.hostname_resolver.getaddress(@host)
+      log.debug "create tcp socket to node", host: @host, address: addr, port: @port
+    rescue => e
+      log.warn "failed to resolve the hostname", error_class: e.class, error: e, host: @host, address: addr, port: @port
+      @state = :failed
+      return
+    end
 
     begin
       if @proxy_uri.nil? then
