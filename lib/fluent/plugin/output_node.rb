@@ -231,7 +231,7 @@ class Fluent::SecureForwardOutput::Node
       addr = @sender.hostname_resolver.getaddress(@host)
       log.debug "create tcp socket to node", host: @host, address: addr, port: @port
     rescue => e
-      log.warn "failed to resolve the hostname", error_class: e.class, error: e, host: @host, address: addr, port: @port
+      log.warn "failed to resolve the hostname", error_class: e.class, error: e, host: @host
       @state = :failed
       return
     end
