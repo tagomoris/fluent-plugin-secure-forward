@@ -263,7 +263,7 @@ module Fluent
       begin
         send_data(node, tag, es)
         node.release!
-      rescue Errno::EPIPE, IOError, OpenSSL::SSL::SSLError => e
+      rescue Errno::EBADF, Errno::EPIPE, IOError, OpenSSL::SSL::SSLError => e
         log.warn "Failed to send messages to #{node.host}, parging.", error_class: e.class, error: e
         node.release!
         node.detach!
