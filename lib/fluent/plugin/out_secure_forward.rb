@@ -56,6 +56,7 @@ module Fluent
     config_section :server, param_name: :servers do
       config_param :host, :string
       config_param :hostlabel, :string, default: nil
+      config_param :sni_hostname, :string, default: nil
       config_param :port, :integer, default: DEFAULT_SECURE_CONNECT_PORT
       config_param :shared_key, :string, default: nil, secret: true
       config_param :username, :string, default: ''

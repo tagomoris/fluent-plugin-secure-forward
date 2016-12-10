@@ -12,6 +12,29 @@ class SecureForwardOutputTest < Test::Unit::TestCase
     Fluent::Test::OutputTestDriver.new(Fluent::SecureForwardOutput, tag).configure(conf)
   end
 
+  def get_ca_cert
+    ca_dir = File.join(Dir.pwd, "test", "tmp", "cadir")
+    unless File.exist?(File.join(ca_dir, 'ca_cert.pem'))
+      FileUtils.mkdir_p(ca_dir)
+      opt = {
+        private_key_length: 2048,
+        cert_country:  'US',
+        cert_state:    'CA',
+        cert_locality: 'Mountain View',
+        cert_common_name: 'SecureForward CA',
+      }
+      cert, key = Fluent::SecureForward::CertUtil.generate_ca_pair(opt)
+      key_data = key.export(OpenSSL::Cipher::Cipher.new('aes256'), passphrase)
+      File.open(File.join(ca_dir, 'ca_key.pem'), 'w') do |file|
+        file.write key_data
+      end
+      File.open(File.join(ca_dir, 'ca_cert.pem'), 'w') do |file|
+        file.write cert.to_pem
+      end
+    end
+    File.join(ca_dir, 'ca_cert.pem')
+  end
+
   def test_configure_secondary
     p1 = nil
     assert_nothing_raised { p1 = create_driver(<<CONFIG).instance }
@@ -104,31 +127,11 @@ CONFIG
   end
 
   def test_configure_with_ca_cert
-    ca_dir = File.join(Dir.pwd, "test", "tmp", "cadir")
-    unless File.exist?(File.join(ca_dir, 'ca_cert.pem'))
-      FileUtils.mkdir_p(ca_dir)
-      opt = {
-        private_key_length: 2048,
-        cert_country:  'US',
-        cert_state:    'CA',
-        cert_locality: 'Mountain View',
-        cert_common_name: 'SecureForward CA',
-      }
-      cert, key = Fluent::SecureForward::CertUtil.generate_ca_pair(opt)
-      key_data = key.export(OpenSSL::Cipher::Cipher.new('aes256'), passphrase)
-      File.open(File.join(ca_dir, 'ca_key.pem'), 'w') do |file|
-        file.write key_data
-      end
-      File.open(File.join(ca_dir, 'ca_cert.pem'), 'w') do |file|
-        file.write cert.to_pem
-      end
-    end
-
     p = nil
     assert_nothing_raised { p = create_driver(<<CONFIG).instance }
   type secure_forward
   secure yes
-  ca_cert_path #{ca_dir}/ca_cert.pem
+  ca_cert_path #{get_ca_cert}
   shared_key secret_string
   self_hostname client.fqdn.local
   num_threads 3
@@ -193,4 +196,22 @@ CONFIG
     ])
     assert_equal "test.dummy.local", d.instance.self_hostname
   end
+
+  def test_configure_with_sni_hostname
+    p = nil
+    assert_nothing_raised { p = create_driver(<<CONFIG).instance }
+  type secure_forward
+  secure yes
+  ca_cert_path #{get_ca_cert}
+  shared_key secret_string
+  self_hostname client.fqdn.local
+  num_threads 3
+  <server>
+    host server1.fqdn.local
+    sni_hostname real.server.fqdn.local
+  </server>
+CONFIG
+    assert_equal 'real.server.fqdn.local', p.nodes[0].sni_hostname
+  end
+
 end

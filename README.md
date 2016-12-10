@@ -398,6 +398,36 @@ set for `proxy_uri` in `<server>` section:
 </match>
 ```
 
+#### Server Name Indication (SNI)
+
+You may need to pass the hostname to use for SNI
+<https://tools.ietf.org/html/rfc3546#section-3.1> if you are connecting through
+a proxy.  If your version of openssl supports SNI
+<https://www.openssl.org/docs/man1.1.0/ssl/SSL_SESSION_get0_hostname.html>, you
+can use this when connecting to a remote server.  Specify the `sni_hostname`
+parameter in your `<server>` section:
+
+```apache
+<match secret.data.**>
+  @type secure_forward
+  shared_key secret_string
+  self_hostname client.fqdn.local
+  
+  secure yes
+  # and configurations for certs/verification
+  
+  keepalive 3600
+  <server>
+    host server.fqdn.local  # or IP
+    sni_hostname secure.forward.listener.fqdn
+    # port 24284
+  </server>
+</match>
+```
+
+If you specify `sni_hostname` but your version of openssl does not support it,
+you will get a warning.
+
 ## Scenario (developer document)
 
 * server

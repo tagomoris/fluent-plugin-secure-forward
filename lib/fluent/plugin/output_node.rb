@@ -9,7 +9,7 @@ require 'proxifier'
 require_relative 'openssl_util'
 
 class Fluent::SecureForwardOutput::Node
-  attr_accessor :host, :port, :hostlabel, :shared_key, :username, :password, :standby
+  attr_accessor :host, :port, :hostlabel, :shared_key, :username, :password, :standby, :sni_hostname
 
   attr_accessor :authentication, :keepalive
   attr_accessor :socket, :sslsession, :unpacker, :shared_key_salt, :state
@@ -25,6 +25,11 @@ class Fluent::SecureForwardOutput::Node
     @host = conf.host
     @port = conf.port
     @hostlabel = conf.hostlabel || conf.host
+    @sni_hostname = conf.sni_hostname
+    if @sni_hostname && !OpenSSL::SSL::SSLSocket.method_defined?(:hostname=)
+      log.warn "sni_hostname specified as #{@sni_hostname} but your version of openssl does not support SNI - sni will not be used"
+      @sni_hostname = nil
+    end
     @username = conf.username
     @password = conf.password
     @standby = conf.standby
@@ -59,7 +64,7 @@ class Fluent::SecureForwardOutput::Node
   def dup
     renewed = self.class.new(
       @sender,
-      Fluent::Config::Section.new({host: @host, port: @port, hostlabel: @hostlabel, username: @username, password: @password, shared_key: @shared_key, standby: @standby, proxy_uri: @proxy_uri})
+      Fluent::Config::Section.new({host: @host, port: @port, hostlabel: @hostlabel, username: @username, password: @password, shared_key: @shared_key, standby: @standby, proxy_uri: @proxy_uri, sni_hostname: @sni_hostname})
     )
     renewed
   end
@@ -294,6 +299,10 @@ class Fluent::SecureForwardOutput::Node
     log.debug "trying to connect ssl session", host: @host, address: addr, port: @port
     begin
       sslsession = OpenSSL::SSL::SSLSocket.new(sock, context)
+      if @sni_hostname
+        @ssl_socket.hostname = @sni_hostname
+        log.trace "using...", sni_hostname: @sni_hostname
+      end
       log.trace "connecting...", host: @host, address: addr, port: @port
       sslsession.connect
       @mtime = Time.now
