@@ -2,6 +2,14 @@
 
 [Fluentd](http://fluentd.org) input/output plugin to forward fluentd messages over SSL with authentication.
 
+## Plugin status
+
+**NOTE: This plugin will not be updated anymore.**
+
+[Fluentd v0.14.12](http://www.fluentd.org/blog/fluentd-v0.14.12-has-been-released) supports event forwarding via encrypted network communication. Use that feature instead of using this plugin.
+
+## Overview
+
 This plugin makes you to be able to:
 
  * protect your data from others in transferring with SSL
