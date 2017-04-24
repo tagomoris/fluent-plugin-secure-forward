@@ -20,7 +20,7 @@ module Fluent
         subject.add_entry('L', opts[:cert_locality])
         subject.add_entry('CN', opts[:cert_common_name])
 
-        digest = OpenSSL::Digest::SHA1.new
+        digest = OpenSSL::Digest::SHA256.new
 
         cert = OpenSSL::X509::Certificate.new
         cert.not_before = Time.at(0)
@@ -48,7 +48,7 @@ module Fluent
         subject.add_entry('L', opts[:locality])
         subject.add_entry('CN', opts[:common_name])
 
-        digest = OpenSSL::Digest::SHA1.new
+        digest = OpenSSL::Digest::SHA256.new
 
         cert = OpenSSL::X509::Certificate.new
         cert.not_before = Time.at(0)
@@ -75,7 +75,7 @@ module Fluent
         subject.add_entry('L', opts[:locality])
         subject.add_entry('CN', opts[:common_name])
 
-        digest = OpenSSL::Digest::SHA1.new
+        digest = OpenSSL::Digest::SHA256.new
 
         cert = OpenSSL::X509::Certificate.new
         cert.not_before = Time.at(0)
