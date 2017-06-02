@@ -22,7 +22,7 @@ opt = {
 }
 cert, key = Fluent::SecureForward::CertUtil.generate_ca_pair(opt)
 
-key_data = key.export(OpenSSL::Cipher::Cipher.new('aes256'), passphrase)
+key_data = key.export(OpenSSL::Cipher.new('aes256'), passphrase)
 File.open(File.join(ca_dir, 'ca_key.pem'), 'w') do |file|
   file.write key_data
 end
