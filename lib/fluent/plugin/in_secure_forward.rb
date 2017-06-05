@@ -283,7 +283,12 @@ module Fluent
     def on_message(msg)
       # NOTE: copy&paste from Fluent::ForwardInput#on_message(msg)
 
-      # TODO: format error
+      # Expect a msgpack FixArray of length 2
+      unless msg.kind_of?(Array) and msg.length == 2
+        log.warn("Discarding invalid message")
+        return
+      end
+
       tag = msg[0].to_s
       entries = msg[1]
 
