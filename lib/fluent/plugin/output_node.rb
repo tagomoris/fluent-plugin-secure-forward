@@ -228,23 +228,22 @@ class Fluent::SecureForwardOutput::Node
     log.debug "starting client"
 
     begin
-      addr = @sender.hostname_resolver.getaddress(@host)
-      log.debug "create tcp socket to node", host: @host, address: addr, port: @port
-    rescue => e
-      log.warn "failed to resolve the hostname", error_class: e.class, error: e, host: @host
-      @state = :failed
-      return
-    end
-
-    begin
       if @proxy_uri.nil? then
+        begin
+          addr = @sender.hostname_resolver.getaddress(@host)
+          log.debug "create tcp socket to node", host: @host, address: addr, port: @port
+        rescue => e
+          log.warn "failed to resolve the hostname", error_class: e.class, error: e, host: @host
+          @state = :failed
+          return
+        end
         sock = TCPSocket.new(addr, @port)
       else
         proxy = Proxifier::Proxy(@proxy_uri)
-        sock = proxy.open(addr, @port)
+        sock = proxy.open(@host, @port)
       end
     rescue => e
-      log.warn "failed to connect for secure-forward", error_class: e.class, error: e, host: @host, address: addr, port: @port
+      log.warn "failed to connect for secure-forward", error_class: e.class, error: e, host: @host, port: @port
       @state = :failed
       return
     end
